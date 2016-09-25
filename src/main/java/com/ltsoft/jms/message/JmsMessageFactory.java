@@ -1,5 +1,8 @@
 package com.ltsoft.jms.message;
 
+import com.ltsoft.jms.exception.JmsExceptionSupport;
+
+import javax.jms.JMSException;
 import java.io.Serializable;
 
 /**
@@ -19,7 +22,7 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsMessage instance.
      */
     public JmsMessage createMessage() {
-        return null;
+        return new JmsMessage();
     }
 
     /**
@@ -33,7 +36,17 @@ public class JmsMessageFactory {
      * if the provider cannot create the message for some reason.
      */
     public JmsTextMessage createTextMessage(String text) {
-        return null;
+        JmsTextMessage message = new JmsTextMessage();
+
+        try {
+            if (text != null) {
+                message.setText(text);
+            }
+        } catch (JMSException e) {
+            throw JmsExceptionSupport.wrap(e);
+        }
+
+        return message;
     }
 
     /**
@@ -45,7 +58,7 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsTextMessage instance.
      */
     public JmsTextMessage createTextMessage() {
-        return null;
+        return createTextMessage(null);
     }
 
     /**
@@ -57,7 +70,7 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsTextMessage instance.
      */
     public JmsBytesMessage createBytesMessage() {
-        return null;
+        return new JmsBytesMessage();
     }
 
     /**
@@ -69,7 +82,7 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsTextMessage instance.
      */
     public JmsMapMessage createMapMessage() {
-        return null;
+        return new JmsMapMessage();
     }
 
     /**
@@ -81,7 +94,7 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsTextMessage instance.
      */
     public JmsStreamMessage createStreamMessage() {
-        return null;
+        return new JmsStreamMessage();
     }
 
     /**
@@ -94,7 +107,17 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsObjectMessage instance.
      */
     public JmsObjectMessage createObjectMessage(Serializable obj) {
-        return null;
+        JmsObjectMessage message = new JmsObjectMessage();
+
+        try {
+            if (obj != null) {
+                message.setObject(obj);
+            }
+        } catch (JMSException e) {
+            throw JmsExceptionSupport.wrap(e);
+        }
+
+        return message;
     }
 
     /**
@@ -106,7 +129,7 @@ public class JmsMessageFactory {
      * @return a newly created and initialized JmsObjectMessage instance.
      */
     public JmsObjectMessage createObjectMessage() {
-        return null;
+        return createObjectMessage(null);
     }
 
 }
