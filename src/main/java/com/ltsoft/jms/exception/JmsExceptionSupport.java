@@ -14,37 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.qpid.jms.exceptions;
+package com.ltsoft.jms.exception;
 
 import javax.jms.JMSException;
+import javax.jms.JMSRuntimeException;
 import javax.jms.MessageEOFException;
 import javax.jms.MessageFormatException;
 
 /**
  * Exception support class.
- *
+ * <p>
  * Factory class for creating JMSException instances based on String messages or by
  * wrapping other non-JMS exception.
+ * from https://github.com/apache/qpid-jms/blob/master/qpid-jms-client/src/main/java/org/apache/qpid/jms/exceptions/JmsExceptionSupport.java
  *
  * @since 1.0
  */
 public final class JmsExceptionSupport {
 
-    private JmsExceptionSupport() {}
+    private JmsExceptionSupport() {
+    }
 
     /**
      * Creates or passes through a JMSException to be thrown to the client.
-     *
+     * <p>
      * In the event that the exception passed to this method is already a
      * JMSException it is passed through unmodified, otherwise a new JMSException
      * is created with the given message and the cause is set to the given
      * cause Throwable instance.
      *
-     * @param message
-     *        The message value to set when a new JMSException is created.
-     * @param cause
-     *        The exception that caused this error state.
-     *
+     * @param message The message value to set when a new JMSException is created.
+     * @param cause   The exception that caused this error state.
      * @return a JMSException instance.
      */
     public static JMSException create(String message, Throwable cause) {
@@ -73,15 +73,13 @@ public final class JmsExceptionSupport {
 
     /**
      * Creates or passes through a JMSException to be thrown to the client.
-     *
+     * <p>
      * In the event that the exception passed to this method is already a
      * JMSException it is passed through unmodified, otherwise a new JMSException
      * is created using the error message taken from the given Throwable value
      * and the cause value is set to the given Throwable instance.
      *
-     * @param cause
-     *        The exception that caused this error state.
-     *
+     * @param cause The exception that caused this error state.
      * @return a JMSException instance.
      */
     public static JMSException create(Throwable cause) {
@@ -90,16 +88,14 @@ public final class JmsExceptionSupport {
 
     /**
      * Creates or passes through a MessageEOFException to be thrown to the client.
-     *
+     * <p>
      * In the event that the exception passed to this method is already a
      * MessageEOFException it is passed through unmodified, otherwise a new
      * MessageEOFException is created using the error message taken from the
      * given Throwable value and the cause value is set to the given Throwable
      * instance.
      *
-     * @param cause
-     *        The exception that caused this error state.
-     *
+     * @param cause The exception that caused this error state.
      * @return a MessageEOFException instance.
      */
     public static MessageEOFException createMessageEOFException(Throwable cause) {
@@ -118,16 +114,14 @@ public final class JmsExceptionSupport {
 
     /**
      * Creates or passes through a MessageFormatException to be thrown to the client.
-     *
+     * <p>
      * In the event that the exception passed to this method is already a
      * MessageFormatException it is passed through unmodified, otherwise a new
      * MessageFormatException is created using the error message taken from the
      * given Throwable value and the cause value is set to the given Throwable
      * instance.
      *
-     * @param cause
-     *        The exception that caused this error state.
-     *
+     * @param cause The exception that caused this error state.
      * @return a MessageEOFException instance.
      */
     public static MessageFormatException createMessageFormatException(Throwable cause) {
@@ -142,5 +136,9 @@ public final class JmsExceptionSupport {
         }
         exception.initCause(cause);
         return exception;
+    }
+
+    public static JMSRuntimeException wrap(JMSException exception) {
+        return new JMSRuntimeException(exception.getMessage(), exception.getErrorCode(), exception);
     }
 }
