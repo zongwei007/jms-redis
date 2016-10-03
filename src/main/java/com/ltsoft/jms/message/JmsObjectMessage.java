@@ -1,5 +1,7 @@
 package com.ltsoft.jms.message;
 
+import com.ltsoft.jms.util.MessageType;
+
 import javax.jms.JMSException;
 import javax.jms.ObjectMessage;
 import java.io.Serializable;
@@ -16,5 +18,10 @@ public class JmsObjectMessage extends JmsMessage implements ObjectMessage {
     @Override
     public Serializable getObject() throws JMSException {
         return null;
+    }
+
+    @Override
+    public String getJMSType() throws JMSException {
+        return MessageType.Object.name();
     }
 }

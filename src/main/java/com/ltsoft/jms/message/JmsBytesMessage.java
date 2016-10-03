@@ -1,5 +1,7 @@
 package com.ltsoft.jms.message;
 
+import com.ltsoft.jms.util.MessageType;
+
 import javax.jms.BytesMessage;
 import javax.jms.JMSException;
 
@@ -140,5 +142,10 @@ public class JmsBytesMessage extends JmsMessage implements BytesMessage {
     @Override
     public void reset() throws JMSException {
 
+    }
+
+    @Override
+    public String getJMSType() throws JMSException {
+        return MessageType.Bytes.name();
     }
 }

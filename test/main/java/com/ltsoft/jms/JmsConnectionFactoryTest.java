@@ -1,7 +1,5 @@
 package com.ltsoft.jms;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 
 import javax.jms.JMSContext;
@@ -14,16 +12,6 @@ public class JmsConnectionFactoryTest {
 
     private static final String USER = "USER";
     private static final String PASSWORD = "PASSWORD";
-
-    @Before
-    public void setUp() throws Exception {
-
-    }
-
-    @After
-    public void tearDown() throws Exception {
-
-    }
 
     @Test(expected = UnsupportedOperationException.class)
     public void createConnection() throws Exception {
@@ -47,7 +35,10 @@ public class JmsConnectionFactoryTest {
 
     @Test
     public void createContextSessionMode() throws Exception {
+        JmsConnectionFactory factory = new JmsConnectionFactory();
+        JMSContext context = factory.createContext(JMSContext.SESSION_TRANSACTED);
 
+        assertEquals(context.getSessionMode(), JMSContext.SESSION_TRANSACTED);
     }
 
     @Test(expected = JMSRuntimeException.class)

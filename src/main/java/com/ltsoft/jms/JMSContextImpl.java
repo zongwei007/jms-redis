@@ -1,114 +1,142 @@
-package com.ltsoft.jms.impl;
+package com.ltsoft.jms;
+
+import com.ltsoft.jms.destination.JmsQueue;
+import com.ltsoft.jms.destination.JmsTemporaryQueue;
+import com.ltsoft.jms.destination.JmsTemporaryTopic;
+import com.ltsoft.jms.destination.JmsTopic;
+import com.ltsoft.jms.message.JmsMessageFactory;
+import redis.clients.jedis.JedisPool;
 
 import javax.jms.*;
 import java.io.Serializable;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Created by zongw on 2016/9/5.
  */
 public class JMSContextImpl implements JMSContext {
 
-    public JMSContextImpl() {
+    private final String clientId;
+    private final JedisPool jedisPool;
+    private final int sessionMode;
+    private final JmsMessageFactory messageFactory;
+
+    private ExceptionListener exceptionListener;
+
+    public JMSContextImpl(String clientId, JedisPool jedisPool, int sessionMode) {
+        this(clientId, jedisPool, sessionMode, new JmsMessageFactory());
+    }
+
+    private JMSContextImpl(String clientId, JedisPool jedisPool, int sessionMode, JmsMessageFactory messageFactory) {
+        this.clientId = clientId;
+        this.jedisPool = jedisPool;
+        this.sessionMode = sessionMode;
+        this.messageFactory = messageFactory;
+    }
+
+    JedisPool pool() {
+        return jedisPool;
     }
 
     @Override
     public JMSContext createContext(int sessionMode) {
-        return null;
+        return new JMSContextImpl(clientId, jedisPool, sessionMode, messageFactory);
     }
 
     @Override
     public JMSProducer createProducer() {
-        return null;
+        return new JMSProducerImpl(this);
     }
 
     @Override
     public String getClientID() {
-        return null;
+        return clientId;
     }
 
     @Override
     public void setClientID(String clientID) {
-
+        throw new InvalidClientIDRuntimeException("Client ID is readOnly");
     }
 
     @Override
     public ConnectionMetaData getMetaData() {
-        return null;
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public ExceptionListener getExceptionListener() {
-        return null;
+        return exceptionListener;
     }
 
     @Override
     public void setExceptionListener(ExceptionListener listener) {
-
+        this.exceptionListener = listener;
     }
 
     @Override
     public void start() {
-
+        //TODO
     }
 
     @Override
     public void stop() {
-
+        //TODO
     }
 
     @Override
     public void setAutoStart(boolean autoStart) {
-
+        //TODO
     }
 
     @Override
     public boolean getAutoStart() {
-        return false;
+        //TODO
+        return true;
     }
 
     @Override
     public void close() {
-
+        //TODO
     }
 
     @Override
     public BytesMessage createBytesMessage() {
-        return null;
+        return messageFactory.createBytesMessage();
     }
 
     @Override
     public MapMessage createMapMessage() {
-        return null;
+        return messageFactory.createMapMessage();
     }
 
     @Override
     public Message createMessage() {
-        return null;
+        return messageFactory.createMessage();
     }
 
     @Override
     public ObjectMessage createObjectMessage() {
-        return null;
+        return messageFactory.createObjectMessage();
     }
 
     @Override
     public ObjectMessage createObjectMessage(Serializable object) {
-        return null;
+        return messageFactory.createObjectMessage(object);
     }
 
     @Override
     public StreamMessage createStreamMessage() {
-        return null;
+        return messageFactory.createStreamMessage();
     }
 
     @Override
     public TextMessage createTextMessage() {
-        return null;
+        return messageFactory.createTextMessage();
     }
 
     @Override
     public TextMessage createTextMessage(String text) {
-        return null;
+        return messageFactory.createTextMessage(text);
     }
 
     @Override
@@ -118,47 +146,47 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public int getSessionMode() {
-        return 0;
+        return sessionMode;
     }
 
     @Override
     public void commit() {
-
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void rollback() {
-
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public void recover() {
-
+        throw new UnsupportedOperationException();
     }
 
     @Override
     public JMSConsumer createConsumer(Destination destination) {
-        return null;
+        return createConsumer(destination, null);
     }
 
     @Override
     public JMSConsumer createConsumer(Destination destination, String messageSelector) {
-        return null;
+        return createConsumer(destination, messageSelector, false);
     }
 
     @Override
     public JMSConsumer createConsumer(Destination destination, String messageSelector, boolean noLocal) {
-        return null;
+        return new JMSConsumerImpl(clientId, jedisPool, sessionMode, destination, noLocal);
     }
 
     @Override
     public Queue createQueue(String queueName) {
-        return null;
+        return new JmsQueue(queueName);
     }
 
     @Override
     public Topic createTopic(String topicName) {
-        return null;
+        return new JmsTopic(topicName);
     }
 
     @Override
@@ -193,31 +221,31 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public QueueBrowser createBrowser(Queue queue) {
-        return null;
+        return createBrowser(queue, null);
     }
 
     @Override
     public QueueBrowser createBrowser(Queue queue, String messageSelector) {
-        return null;
+        return new JMSQueueBrowserImpl(queue, jedisPool);
     }
 
     @Override
     public TemporaryQueue createTemporaryQueue() {
-        return null;
+        return new JmsTemporaryQueue(jedisPool);
     }
 
     @Override
     public TemporaryTopic createTemporaryTopic() {
-        return null;
+        return new JmsTemporaryTopic(jedisPool);
     }
 
     @Override
     public void unsubscribe(String name) {
-
+        //TODO
     }
 
     @Override
     public void acknowledge() {
-
+        //TODO
     }
 }

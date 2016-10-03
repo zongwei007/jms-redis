@@ -1,5 +1,7 @@
 package com.ltsoft.jms.message;
 
+import com.ltsoft.jms.util.MessageType;
+
 import javax.jms.JMSException;
 import javax.jms.MapMessage;
 import java.util.Enumeration;
@@ -131,5 +133,10 @@ public class JmsMapMessage extends JmsMessage implements MapMessage {
     @Override
     public boolean itemExists(String name) throws JMSException {
         return false;
+    }
+
+    @Override
+    public String getJMSType() throws JMSException {
+        return MessageType.Map.name();
     }
 }

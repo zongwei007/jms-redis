@@ -1,13 +1,14 @@
 package com.ltsoft.jms.message;
 
-import com.ltsoft.jms.util.TypeConversionSupport;
+import com.ltsoft.jms.util.MessageProperty;
+import com.ltsoft.jms.util.MessageType;
 
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.MessageFormatException;
-import java.util.*;
-import java.util.function.Supplier;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.Optional;
 
 
 public class JmsMessage implements Message {
@@ -19,12 +20,13 @@ public class JmsMessage implements Message {
     private Destination destination;
     private int deliveryMode;
     private boolean redelivered;
-    private String type;
     private long expiration;
     private long deliveryTime;
     private int priority;
 
-    private Map<String, Object> properties = new HashMap<>();
+    private String messageFrom;
+
+    private MessageProperty property = new MessageProperty();
 
     @Override
     public String getJMSMessageID() throws JMSException {
@@ -108,12 +110,12 @@ public class JmsMessage implements Message {
 
     @Override
     public String getJMSType() throws JMSException {
-        return type;
+        return MessageType.Basic.name();
     }
 
     @Override
     public void setJMSType(String type) throws JMSException {
-        this.type = type;
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -146,77 +148,76 @@ public class JmsMessage implements Message {
         this.priority = priority;
     }
 
+    public void setJMSXMessageFrom(String messageFrom) {
+        this.messageFrom = messageFrom;
+    }
+
+    public String getJMSXMessageFrom() {
+        return messageFrom;
+    }
+
     @Override
     public void clearProperties() throws JMSException {
-        this.properties.clear();
+        property.clearProperties();
+    }
+
+    public void mergeProperties(MessageProperty props) {
+        property.mergeProperty(props);
     }
 
     @Override
     public boolean propertyExists(String name) throws JMSException {
-        return properties.containsKey(name);
-    }
-
-    private <T> Optional<T> getProperty(String name, Class<T> type) throws JMSException {
-        try {
-            return Optional.ofNullable(getObjectProperty(name))
-                    .map(val -> TypeConversionSupport.convert(val, type));
-        } catch (Exception e) {
-            throw new MessageFormatException(String.format("Get property %s fail：%s", name, e.getMessage()));
-        }
+        return property.propertyExists(name);
     }
 
     @Override
     public boolean getBooleanProperty(String name) throws JMSException {
-        return getProperty(name, Boolean.class).orElse(false);
-    }
-
-    private Supplier<NumberFormatException> numberFormatException(String name) {
-        return () -> new NumberFormatException("property " + name + " is null");
+        return property.getBooleanProperty(name);
     }
 
     @Override
     public byte getByteProperty(String name) throws JMSException {
-        return getProperty(name, Byte.class).orElseThrow(numberFormatException(name));
+        return property.getByteProperty(name);
     }
 
     @Override
     public short getShortProperty(String name) throws JMSException {
-        return getProperty(name, Short.class).orElseThrow(numberFormatException(name));
+        return property.getShortProperty(name);
     }
 
     @Override
     public int getIntProperty(String name) throws JMSException {
-        return getProperty(name, Integer.class).orElseThrow(numberFormatException(name));
+        return property.getIntProperty(name);
     }
 
     @Override
     public long getLongProperty(String name) throws JMSException {
-        return getProperty(name, Long.class).orElseThrow(numberFormatException(name));
+        return property.getLongProperty(name);
     }
 
     @Override
     public float getFloatProperty(String name) throws JMSException {
-        return getProperty(name, Float.class).orElseThrow(numberFormatException(name));
+        return property.getFloatProperty(name);
     }
 
     @Override
     public double getDoubleProperty(String name) throws JMSException {
-        return getProperty(name, Double.class).orElseThrow(numberFormatException(name));
+        return property.getDoubleProperty(name);
     }
 
     @Override
     public String getStringProperty(String name) throws JMSException {
-        return getProperty(name, String.class).orElse(null);
+        return property.getStringProperty(name);
     }
 
     @Override
     public Object getObjectProperty(String name) throws JMSException {
-        return properties.get(name);
+        return property.getObjectProperty(name);
     }
 
     @Override
     public Enumeration<String> getPropertyNames() throws JMSException {
-        return Collections.enumeration(properties.keySet());
+        return Collections.enumeration(property.getPropertyNames());
     }
 
     @Override
@@ -259,27 +260,9 @@ public class JmsMessage implements Message {
         setObjectProperty(name, value);
     }
 
-    private static void checkValidObject(Object value) throws MessageFormatException {
-        boolean valid = value instanceof Boolean ||
-                value instanceof Byte ||
-                value instanceof Short ||
-                value instanceof Integer ||
-                value instanceof Long ||
-                value instanceof Float ||
-                value instanceof Double ||
-                value instanceof Character ||
-                value instanceof String ||
-                value == null;
-
-        if (!valid) {
-            throw new MessageFormatException("Only objectified primitive objects and String types are allowed but was: " + value + " type: " + value.getClass());
-        }
-    }
-
     @Override
     public void setObjectProperty(String name, Object value) throws JMSException {
-        checkValidObject(value);
-        properties.put(name, value);
+        property.setProperty(name, value);
     }
 
     @Override

@@ -1,6 +1,6 @@
 package com.ltsoft.jms.message;
 
-import com.ltsoft.jms.exception.JmsExceptionSupport;
+import com.ltsoft.jms.exception.JMSExceptionSupport;
 
 import javax.jms.JMSException;
 import java.io.Serializable;
@@ -43,7 +43,7 @@ public class JmsMessageFactory {
                 message.setText(text);
             }
         } catch (JMSException e) {
-            throw JmsExceptionSupport.wrap(e);
+            throw JMSExceptionSupport.wrap(e);
         }
 
         return message;
@@ -114,7 +114,7 @@ public class JmsMessageFactory {
                 message.setObject(obj);
             }
         } catch (JMSException e) {
-            throw JmsExceptionSupport.wrap(e);
+            throw JMSExceptionSupport.wrap(e);
         }
 
         return message;

@@ -30,9 +30,9 @@ import javax.jms.MessageFormatException;
  *
  * @since 1.0
  */
-public final class JmsExceptionSupport {
+public final class JMSExceptionSupport {
 
-    private JmsExceptionSupport() {
+    private JMSExceptionSupport() {
     }
 
     /**

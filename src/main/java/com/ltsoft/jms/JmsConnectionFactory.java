@@ -24,7 +24,7 @@ public class JmsConnectionFactory implements ConnectionFactory {
      * 基于 JedisPool 和 clientId 构造
      *
      * @param jedisPool Jedis 连接池
-     * @param clientId 客户端 ID
+     * @param clientId  客户端 ID
      */
     public JmsConnectionFactory(JedisPool jedisPool, String clientId) {
         setJedisPool(jedisPool);
@@ -51,8 +51,8 @@ public class JmsConnectionFactory implements ConnectionFactory {
         if (sessionMode < JMSContext.SESSION_TRANSACTED || sessionMode > JMSContext.DUPS_OK_ACKNOWLEDGE) {
             throw new JMSRuntimeException(MessageFormat.format("Unsupported sessionMode: {0}", sessionMode));
         }
-        //TODO 实现 JMSContext 的构建
-        return null;
+
+        return new JMSContextImpl(clientId, jedisPool, sessionMode);
     }
 
     @Override

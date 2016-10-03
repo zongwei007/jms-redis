@@ -1,4 +1,4 @@
-package com.ltsoft.message;
+package com.ltsoft.jms;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -9,20 +9,16 @@ import javax.jms.QueueBrowser;
 import java.util.Enumeration;
 import java.util.Iterator;
 
-import static com.ltsoft.message.util.KeyUtil.getDestinationKey;
-
 /**
  * 队列浏览器
  */
 public class JMSQueueBrowserImpl implements QueueBrowser {
     private final JedisPool pool;
     private final Queue queue;
-    private final String messageSelector;
 
-    JMSQueueBrowserImpl(JedisPool jedisPool, Queue queue, String messageSelector) {
-        this.pool = jedisPool;
+    JMSQueueBrowserImpl(Queue queue, JedisPool jedisPool) {
         this.queue = queue;
-        this.messageSelector = messageSelector;
+        this.pool = jedisPool;
     }
 
     @Override
@@ -32,7 +28,7 @@ public class JMSQueueBrowserImpl implements QueueBrowser {
 
     @Override
     public String getMessageSelector() throws JMSException {
-        return messageSelector;
+        return null;
     }
 
     @Override
@@ -51,7 +47,7 @@ public class JMSQueueBrowserImpl implements QueueBrowser {
         private final Iterator<String> keyIterator;
 
         QueueEnumeration(Queue queue) {
-            this.queueKey = getDestinationKey(queue);
+            this.queueKey = queue.toString();
             try (Jedis client = pool.getResource()) {
                 this.keyIterator = client.lrange(queueKey, 0, -1).iterator();
             }
@@ -65,7 +61,7 @@ public class JMSQueueBrowserImpl implements QueueBrowser {
         @Override
         public Object nextElement() {
 //            String messageId = keyIterator.next();
-//            byte[] messageKey = getDestinationItemKey(queue, messageId);
+//            byte[] messageKey = getDestinationPropsKey(queue, messageId);
 //            try (Jedis client = pool.getResource()) {
 //                byte[] bytes = client.get(messageKey);
 //                return bytes == null ? null : getObjectMapper().readValue(bytes, Message.class);

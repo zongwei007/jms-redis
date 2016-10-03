@@ -1,8 +1,4 @@
-package com.ltsoft.message.destination;
-
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonTypeName;
+package com.ltsoft.jms.destination;
 
 import javax.jms.JMSException;
 import javax.jms.Queue;
@@ -10,17 +6,14 @@ import javax.jms.Queue;
 /**
  * 队列
  */
-@JsonTypeName("q")
-public class QueueImpl implements Queue {
+public class JmsQueue extends JmsDestination implements Queue {
 
     private String queueName;
 
-    @JsonCreator
-    public QueueImpl(@JsonProperty("name") String queueName) {
+    public JmsQueue(String queueName) {
         this.queueName = queueName;
     }
 
-    @JsonProperty("name")
     @Override
     public String getQueueName() throws JMSException {
         return queueName;
@@ -36,10 +29,9 @@ public class QueueImpl implements Queue {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        QueueImpl queue = (QueueImpl) o;
+        JmsQueue queue = (JmsQueue) o;
 
         return queueName.equals(queue.queueName);
-
     }
 
     @Override

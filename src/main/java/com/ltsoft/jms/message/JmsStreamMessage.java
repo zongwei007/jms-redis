@@ -1,5 +1,7 @@
 package com.ltsoft.jms.message;
 
+import com.ltsoft.jms.util.MessageType;
+
 import javax.jms.JMSException;
 import javax.jms.StreamMessage;
 
@@ -125,5 +127,10 @@ public class JmsStreamMessage extends JmsMessage implements StreamMessage {
     @Override
     public void reset() throws JMSException {
 
+    }
+
+    @Override
+    public String getJMSType() throws JMSException {
+        return MessageType.Stream.name();
     }
 }
