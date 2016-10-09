@@ -2,7 +2,6 @@ package com.ltsoft.jms.util;
 
 import javax.jms.MessageFormatRuntimeException;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -12,7 +11,7 @@ import java.util.function.Supplier;
  */
 public class MessageProperty {
 
-    private Map<String, Object> properties = new HashMap<>();
+    protected final HashMap<String, Object> properties = new HashMap<>();
 
     public void clearProperties() {
         properties.clear();
@@ -22,9 +21,9 @@ public class MessageProperty {
         return properties.containsKey(name);
     }
 
-    private <T> Optional<T> getProperty(String name, Class<T> type) {
+    protected <T> Optional<T> getProperty(String name, Class<T> type) {
         try {
-            return Optional.ofNullable(getObjectProperty(name))
+            return Optional.ofNullable(properties.get(name))
                     .map(val -> TypeConversionSupport.convert(val, type));
         } catch (Exception e) {
             throw new MessageFormatRuntimeException(String.format("Get property %s fail：%s", name, e.getMessage()));
@@ -43,41 +42,37 @@ public class MessageProperty {
         return getProperty(name, Byte.class).orElseThrow(numberFormatException(name));
     }
 
-
     public short getShortProperty(String name) {
         return getProperty(name, Short.class).orElseThrow(numberFormatException(name));
     }
 
+    public char getCharacter(String name) {
+        return getProperty(name, Character.class).orElseThrow(numberFormatException(name));
+    }
 
     public int getIntProperty(String name) {
         return getProperty(name, Integer.class).orElseThrow(numberFormatException(name));
     }
 
-
     public long getLongProperty(String name) {
         return getProperty(name, Long.class).orElseThrow(numberFormatException(name));
     }
-
 
     public float getFloatProperty(String name) {
         return getProperty(name, Float.class).orElseThrow(numberFormatException(name));
     }
 
-
     public double getDoubleProperty(String name) {
         return getProperty(name, Double.class).orElseThrow(numberFormatException(name));
     }
-
 
     public String getStringProperty(String name) {
         return getProperty(name, String.class).orElse(null);
     }
 
-
     public Object getObjectProperty(String name) {
-        return properties.get(name);
+        return getProperty(name, Object.class).orElse(null);
     }
-
 
     public Set<String> getPropertyNames() {
         return properties.keySet();

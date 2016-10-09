@@ -1,11 +1,14 @@
 package com.ltsoft.jms.message;
 
 import com.ltsoft.jms.destination.JmsDestination;
+import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.util.MessageType;
-import com.ltsoft.jms.util.TypeConversionSupport;
+import com.ltsoft.jms.util.TypeSerializeSupport;
 
 import javax.jms.JMSException;
+import javax.jms.MessageEOFException;
 import javax.jms.MessageNotReadableException;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.*;
 
@@ -36,6 +39,8 @@ public final class JmsMessageHelper {
     private static final Map<Class, Byte> TYPE_TO_CODE = new HashMap<>();
     private static final Map<Byte, Class> CODE_TO_TYPE = new HashMap<>();
 
+    private static final Byte NULL_CODE = (byte) 0xc0;
+
     static {
         TYPE_TO_CODE.put(Boolean.class, (byte) 0xc0);
 
@@ -48,6 +53,8 @@ public final class JmsMessageHelper {
 
         TYPE_TO_CODE.put(Byte.class, (byte) 0xd8);
         TYPE_TO_CODE.put(String.class, (byte) 0xd9);
+
+        TYPE_TO_CODE.put(byte[].class, (byte) 0x90);
 
         TYPE_TO_CODE.forEach((type, code) -> CODE_TO_TYPE.put(code, type));
     }
@@ -84,54 +91,69 @@ public final class JmsMessageHelper {
         return decompressUUID(messageId.substring(ID_PREFIX.length()));
     }
 
-    public static Map<byte[], byte[]> toMap(JmsMessage message) throws JMSException {
-        Map<byte[], byte[]> map = new HashMap<>();
+    public static Map<String, byte[]> toStringKey(Map<byte[], byte[]> source) {
+        Map<String, byte[]> result = new HashMap<>();
+        source.forEach((key, value) -> result.put(new String(key), value));
+        return result;
+    }
+
+    public static Map<byte[], byte[]> toBytesKey(Map<String, byte[]> source) {
+        Map<byte[], byte[]> result = new HashMap<>();
+        source.forEach((key, value) -> result.put(key.getBytes(), value));
+        return result;
+    }
+
+    public static Map<String, byte[]> toMap(JmsMessage message) throws JMSException {
+        Map<String, byte[]> map = new HashMap<>();
 
         if (message.getJMSCorrelationID() != null) {
-            map.put(JMS_CORRELATION_ID.getBytes(), message.getJMSCorrelationIDAsBytes());
+            map.put(JMS_CORRELATION_ID, message.getJMSCorrelationIDAsBytes());
         }
 
-
-        map.put(JMS_DELIVERY_MODE.getBytes(), String.valueOf(message.getJMSDeliveryMode()).getBytes());
+        map.put(JMS_DELIVERY_MODE, String.valueOf(message.getJMSDeliveryMode()).getBytes());
         if (message.getJMSDestination() != null) {
-            map.put(JMS_DESTINATION.getBytes(), String.valueOf(message.getJMSDestination()).getBytes());
+            map.put(JMS_DESTINATION, String.valueOf(message.getJMSDestination()).getBytes());
         }
         if (message.getJMSExpiration() > 0) {
-            map.put(JMS_EXPIRATION.getBytes(), String.valueOf(message.getJMSExpiration()).getBytes());
+            map.put(JMS_EXPIRATION, String.valueOf(message.getJMSExpiration()).getBytes());
         }
-        map.put(JMS_PRIORITY.getBytes(), String.valueOf(message.getJMSPriority()).getBytes());
-        map.put(JMS_REDELIVERED.getBytes(), String.valueOf(message.getJMSRedelivered()).getBytes());
+        map.put(JMS_PRIORITY, String.valueOf(message.getJMSPriority()).getBytes());
+        map.put(JMS_REDELIVERED, String.valueOf(message.getJMSRedelivered()).getBytes());
         if (message.getJMSReplyTo() != null) {
-            map.put(JMS_REPLY_TO.getBytes(), String.valueOf(message.getJMSReplyTo()).getBytes());
+            map.put(JMS_REPLY_TO, String.valueOf(message.getJMSReplyTo()).getBytes());
         }
         if (message.getJMSTimestamp() > 0) {
-            map.put(JMS_TIMESTAMP.getBytes(), String.valueOf(message.getJMSTimestamp()).getBytes());
+            map.put(JMS_TIMESTAMP, String.valueOf(message.getJMSTimestamp()).getBytes());
         }
-        map.put(JMS_TYPE.getBytes(), message.getJMSType().getBytes());
+        map.put(JMS_TYPE, message.getJMSType().getBytes());
 
-        Class<byte[]> toClass = byte[].class;
         Enumeration<String> enumeration = message.getPropertyNames();
         while (enumeration.hasMoreElements()) {
             String name = enumeration.nextElement();
 
+            byte[] result;
             Object property = message.getObjectProperty(name);
-            byte[] data = TypeConversionSupport.convert(property, toClass);
-            byte[] result = new byte[data.length + 1];
-            result[0] = TYPE_TO_CODE.get(property.getClass());
-            System.arraycopy(data, 0, result, 1, data.length);
+            if (property != null) {
+                byte[] data = TypeSerializeSupport.serialize(property);
+                result = new byte[data.length + 1];
+                result[0] = TYPE_TO_CODE.get(property.getClass());
+                System.arraycopy(data, 0, result, 1, data.length);
+            } else {
+                result = new byte[]{NULL_CODE};
+            }
 
-            map.put(name.getBytes(), result);
+            map.put(name, result);
         }
 
         return map;
     }
 
     @SuppressWarnings("unchecked")
-    public static <T extends JmsMessage> T fromMap(Map<byte[], byte[]> propBytes) throws JMSException {
-        byte[] typeKey = JMS_TYPE.getBytes();
-        if (propBytes.containsKey(typeKey)) {
+    public static <T extends JmsMessage> T fromMap(Map<String, byte[]> propBytes) throws JMSException {
+        if (propBytes.containsKey(JMS_TYPE)) {
             JmsMessage message = null;
-            switch (MessageType.valueOf(new String(propBytes.get(typeKey)))) {
+            MessageType messageType = MessageType.valueOf(new String(propBytes.get(JMS_TYPE)));
+            switch (messageType) {
                 case Basic:
                     message = new JmsMessage();
                     break;
@@ -152,33 +174,36 @@ public final class JmsMessageHelper {
                     break;
             }
 
-            for (Map.Entry<byte[], byte[]> entry : propBytes.entrySet()) {
-                String key = new String(entry.getKey());
-                String value = new String(entry.getValue());
+            for (Map.Entry<String, byte[]> entry : propBytes.entrySet()) {
+                String key = entry.getKey();
+                byte[] value = entry.getValue();
                 switch (key) {
                     case JMS_CORRELATION_ID:
-                        message.setJMSCorrelationID(value);
+                        message.setJMSCorrelationID(new String(value));
                         break;
                     case JMS_DELIVERY_MODE:
-                        message.setJMSDeliveryMode(Integer.valueOf(value));
+                        message.setJMSDeliveryMode(Integer.valueOf(new String(value)));
                         break;
                     case JMS_DESTINATION:
-                        message.setJMSDestination(JmsDestination.valueOf(value));
+                        message.setJMSDestination(JmsDestination.valueOf(new String(value)));
                         break;
                     case JMS_EXPIRATION:
-                        message.setJMSExpiration(Long.valueOf(value));
+                        message.setJMSExpiration(Long.valueOf(new String(value)));
                         break;
                     case JMS_PRIORITY:
-                        message.setJMSPriority(Integer.valueOf(value));
+                        message.setJMSPriority(Integer.valueOf(new String(value)));
                         break;
                     case JMS_REDELIVERED:
-                        message.setJMSRedelivered(Boolean.valueOf(value));
+                        message.setJMSRedelivered(Boolean.valueOf(new String(value)));
                         break;
                     case JMS_REPLY_TO:
-                        message.setJMSReplyTo(JmsDestination.valueOf(value));
+                        message.setJMSReplyTo(JmsDestination.valueOf(new String(value)));
                         break;
                     case JMS_TIMESTAMP:
-                        message.setJMSTimestamp(Long.valueOf(value));
+                        message.setJMSTimestamp(Long.valueOf(new String(value)));
+                        break;
+                    case JMSX_BODY:
+                        message.setBody(value);
                         break;
                     case JMS_TYPE:
                         break;
@@ -186,7 +211,12 @@ public final class JmsMessageHelper {
                         byte[] bytes = entry.getValue();
                         byte[] data = Arrays.copyOfRange(bytes, 1, bytes.length);
                         Class type = CODE_TO_TYPE.get(bytes[0]);
-                        message.setObjectProperty(key, TypeConversionSupport.convert(data, type));
+                        if (type != null) {
+                            message.setObjectProperty(key, TypeSerializeSupport.deserialize(data, type));
+                        } else if (NULL_CODE.equals(bytes[0])) {
+                            message.setObjectProperty(key, null);
+                        }
+
                 }
             }
 
@@ -197,5 +227,60 @@ public final class JmsMessageHelper {
         throw new MessageNotReadableException("Unknown message type");
     }
 
+    public static byte[] toBytes(JmsMessage message) throws JMSException {
+        Map<String, byte[]> map = toMap(message);
+
+        map.put(JMSX_BODY, message.getBody());
+
+        try (ByteArrayOutputStream os = new ByteArrayOutputStream();
+             DataOutputStream writer = new DataOutputStream(os)) {
+
+            for (Map.Entry<String, byte[]> entry : map.entrySet()) {
+                byte[] key = entry.getKey().getBytes();
+                byte[] value = entry.getValue();
+                writer.writeInt(key.length);
+                writer.write(key);
+                writer.writeInt(value.length);
+                writer.write(value);
+            }
+
+            return os.toByteArray();
+        } catch (IOException e) {
+            throw JMSExceptionSupport.create(e);
+        }
+    }
+
+    public static <T extends JmsMessage> T fromBytes(byte[] bytes) throws JMSException {
+        Map<String, byte[]> map = new HashMap<>();
+
+        try (ByteArrayInputStream is = new ByteArrayInputStream(bytes);
+             DataInputStream reader = new DataInputStream(is)) {
+
+            while (true) {
+                int keyLen;
+                try {
+                    keyLen = reader.readInt();
+                } catch (EOFException e) {
+                    break;
+                }
+                byte[] key = new byte[keyLen];
+                if (reader.read(key) == -1) {
+                    throw new MessageEOFException("read key fail");
+                }
+                int valueLen = reader.readInt();
+                byte[] value = new byte[valueLen];
+                if (reader.read(value) == -1) {
+                    throw new MessageEOFException("read value fail");
+                }
+                map.put(new String(key), value);
+            }
+        } catch (EOFException e) {
+            throw new MessageEOFException(e.getMessage());
+        } catch (IOException e) {
+            throw JMSExceptionSupport.create(e);
+        }
+
+        return fromMap(map);
+    }
 }
 

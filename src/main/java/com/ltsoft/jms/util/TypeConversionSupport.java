@@ -16,142 +16,110 @@
  */
 package com.ltsoft.jms.util;
 
-import com.ltsoft.jms.destination.*;
-
-import javax.jms.Destination;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.util.Date;
 import java.util.HashMap;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * from https://github.com/apache/qpid-jms/blob/master/qpid-jms-client/src/main/java/org/apache/qpid/jms/util/TypeConversionSupport.java
+ * <pre>
+ * |        | boolean byte short char int long float double String byte[]
+ * |----------------------------------------------------------------------
+ * |boolean |    X                                            X
+ * |byte    |          X     X         X   X                  X
+ * |short   |                X         X   X                  X
+ * |char    |                     X                           X
+ * |int     |                          X   X                  X
+ * |long    |                              X                  X
+ * |float   |                                    X     X      X
+ * |double  |                                          X      X
+ * |String  |    X     X     X         X   X     X     X      X
+ * |byte[]  |                                                        X
+ * |----------------------------------------------------------------------
+ * </pre>
  */
 public final class TypeConversionSupport {
-
-    private static final Charset UTF8 = Charset.forName("UTF-8");
-
-    private static final byte[] TRUE = {(byte) 0xc3};
-    private static final byte[] FALSE = {(byte) 0xc2};
 
     private TypeConversionSupport() {
     }
 
-    private static class ConversionKey {
-        final Class<?> from;
-        final Class<?> to;
-        final int hashCode;
-
-        ConversionKey(Class<?> from, Class<?> to) {
-            this.from = from;
-            this.to = to;
-            this.hashCode = from.hashCode() ^ (to.hashCode() << 1);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-
-            if (o == null || o.getClass() != this.getClass()) {
-                return false;
-            }
-
-            ConversionKey x = (ConversionKey) o;
-            return x.from == from && x.to == to;
-        }
-
-        @Override
-        public int hashCode() {
-            return hashCode;
-        }
-    }
-
-    @FunctionalInterface
-    interface Converter<F, T> {
-        T convert(F value);
-    }
-
-    private static final HashMap<ConversionKey, Converter<?, ?>> CONVERSION_MAP = new HashMap<>();
+    //JMS 基本类型转换
+    private static final HashMap<ConversionKey, Function<?, ?>> CONVERSION_MAP = new HashMap<>();
 
     static {
 
-        Converter<Object, String> toStringConverter = Object::toString;
+        Function<Object, String> toStringConverter = Object::toString;
+        Function<Number, Long> longConvert = Number::longValue;
+
+        //Boolean
         CONVERSION_MAP.put(new ConversionKey(Boolean.class, String.class), toStringConverter);
+        //Byte
+        CONVERSION_MAP.put(new ConversionKey(Byte.class, Short.class), (Function<Byte, Short>) Byte::shortValue);
+        CONVERSION_MAP.put(new ConversionKey(Byte.class, Integer.class), (Function<Byte, Integer>) Byte::intValue);
+        CONVERSION_MAP.put(new ConversionKey(Byte.class, Long.class), (Function<Byte, Long>) Byte::longValue);
         CONVERSION_MAP.put(new ConversionKey(Byte.class, String.class), toStringConverter);
+        //Short
+        CONVERSION_MAP.put(new ConversionKey(Short.class, Integer.class), (Function<Number, Integer>) Number::intValue);
+        CONVERSION_MAP.put(new ConversionKey(Short.class, Long.class), longConvert);
         CONVERSION_MAP.put(new ConversionKey(Short.class, String.class), toStringConverter);
+        //Character
+        CONVERSION_MAP.put(new ConversionKey(Character.class, String.class), toStringConverter);
+        //Integer
+        CONVERSION_MAP.put(new ConversionKey(Integer.class, Long.class), longConvert);
         CONVERSION_MAP.put(new ConversionKey(Integer.class, String.class), toStringConverter);
+        //Long
         CONVERSION_MAP.put(new ConversionKey(Long.class, String.class), toStringConverter);
+        //Float
+        CONVERSION_MAP.put(new ConversionKey(Float.class, Double.class), (Function<Number, Double>) Number::doubleValue);
         CONVERSION_MAP.put(new ConversionKey(Float.class, String.class), toStringConverter);
+        //Double
         CONVERSION_MAP.put(new ConversionKey(Double.class, String.class), toStringConverter);
+        //String
+        CONVERSION_MAP.put(new ConversionKey(String.class, Boolean.class), (Function<String, Boolean>) Boolean::valueOf);
+        CONVERSION_MAP.put(new ConversionKey(String.class, Byte.class), (Function<String, Byte>) Byte::valueOf);
+        CONVERSION_MAP.put(new ConversionKey(String.class, Short.class), (Function<String, Short>) Short::valueOf);
+        CONVERSION_MAP.put(new ConversionKey(String.class, Integer.class), (Function<String, Integer>) Integer::valueOf);
+        CONVERSION_MAP.put(new ConversionKey(String.class, Long.class), (Function<String, Long>) Long::valueOf);
+        CONVERSION_MAP.put(new ConversionKey(String.class, Float.class), (Function<String, Float>) Float::valueOf);
+        CONVERSION_MAP.put(new ConversionKey(String.class, Double.class), (Function<String, Double>) Double::valueOf);
+    }
 
-        CONVERSION_MAP.put(new ConversionKey(String.class, Boolean.class), (Converter<String, Boolean>) Boolean::valueOf);
-        CONVERSION_MAP.put(new ConversionKey(String.class, Byte.class), (Converter<String, Byte>) Byte::valueOf);
-        CONVERSION_MAP.put(new ConversionKey(String.class, Short.class), (Converter<String, Short>) Short::valueOf);
-        CONVERSION_MAP.put(new ConversionKey(String.class, Integer.class), (Converter<String, Integer>) Integer::valueOf);
-        CONVERSION_MAP.put(new ConversionKey(String.class, Long.class), (Converter<String, Long>) Long::valueOf);
-        CONVERSION_MAP.put(new ConversionKey(String.class, Float.class), (Converter<String, Float>) Float::valueOf);
-        CONVERSION_MAP.put(new ConversionKey(String.class, Double.class), (Converter<String, Double>) Double::valueOf);
+    /**
+     * @param value
+     * @param toClass 转换的类型
+     * @return
+     */
+    public static boolean can(Object value, Class<?> toClass) {
+        if (value == null) {
+            return false;
+        }
 
-        Converter<Number, Long> longConverter = Number::longValue;
+        if (value.getClass() == requireNonNull(toClass)) {
+            return true;
+        }
 
-        CONVERSION_MAP.put(new ConversionKey(Byte.class, Long.class), longConverter);
-        CONVERSION_MAP.put(new ConversionKey(Short.class, Long.class), longConverter);
-        CONVERSION_MAP.put(new ConversionKey(Integer.class, Long.class), longConverter);
-        CONVERSION_MAP.put(new ConversionKey(Date.class, Long.class), (Converter<Date, Long>) Date::getTime);
+        Class<?> fromClass = value.getClass();
 
-        Converter<Number, Integer> intConverter = Number::intValue;
-        CONVERSION_MAP.put(new ConversionKey(Byte.class, Integer.class), intConverter);
-        CONVERSION_MAP.put(new ConversionKey(Short.class, Integer.class), intConverter);
-
-        CONVERSION_MAP.put(new ConversionKey(Byte.class, Short.class), (Converter<Byte, Short>) Byte::shortValue);
-
-        CONVERSION_MAP.put(new ConversionKey(Float.class, Double.class), (Converter<Float, Double>) Float::doubleValue);
-
-        CONVERSION_MAP.put(new ConversionKey(Boolean.class, byte[].class), (Boolean value) -> value ? TRUE : FALSE);
-        CONVERSION_MAP.put(new ConversionKey(Byte.class, byte[].class), (Byte value) -> new byte[]{value});
-        CONVERSION_MAP.put(new ConversionKey(Short.class, byte[].class), (Short value) -> ByteBuffer.allocate(4).putShort(value).array());
-        CONVERSION_MAP.put(new ConversionKey(Integer.class, byte[].class), (Integer value) -> ByteBuffer.allocate(4).putInt(value).array());
-        CONVERSION_MAP.put(new ConversionKey(Long.class, byte[].class), (Long value) -> ByteBuffer.allocate(8).putLong(value).array());
-        CONVERSION_MAP.put(new ConversionKey(Float.class, byte[].class), (Float value) -> ByteBuffer.allocate(4).putFloat(value).array());
-        CONVERSION_MAP.put(new ConversionKey(Double.class, byte[].class), (Double value) -> ByteBuffer.allocate(8).putDouble(value).array());
-        CONVERSION_MAP.put(new ConversionKey(String.class, byte[].class), (String value) -> value.getBytes(UTF8));
-
-        Converter<Destination, byte[]> destinationConverter = (Destination value) -> value.toString().getBytes(UTF8);
-        CONVERSION_MAP.put(new ConversionKey(JmsQueue.class, byte[].class), destinationConverter);
-        CONVERSION_MAP.put(new ConversionKey(JmsTopic.class, byte[].class), destinationConverter);
-        CONVERSION_MAP.put(new ConversionKey(JmsTemporaryQueue.class, byte[].class), destinationConverter);
-        CONVERSION_MAP.put(new ConversionKey(JmsTemporaryTopic.class, byte[].class), destinationConverter);
-
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Boolean.class), (byte[] value) -> value.length == 1 && value[0] == TRUE[0]);
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Byte.class), (byte[] value) -> value[0]);
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Short.class), (byte[] value) -> ByteBuffer.wrap(value).getShort());
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Integer.class), (byte[] value) -> ByteBuffer.wrap(value).getInt());
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Long.class), (byte[] value) -> ByteBuffer.wrap(value).getLong());
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Float.class), (byte[] value) -> ByteBuffer.wrap(value).getFloat());
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Double.class), (byte[] value) -> ByteBuffer.wrap(value).getDouble());
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, String.class), (byte[] value) -> new String(value, UTF8));
-
-        CONVERSION_MAP.put(new ConversionKey(byte[].class, Destination.class), (byte[] value) -> JmsDestination.valueOf(new String(value, UTF8)));
+        return CONVERSION_MAP.containsKey(new ConversionKey(fromClass, toClass));
     }
 
     @SuppressWarnings("unchecked")
     public static <T> T convert(Object value, Class<T> toClass) {
+        if (value == null) {
+            return null;
+        }
 
-        if (requireNonNull(value).getClass() == requireNonNull(toClass)) {
+        if (value.getClass() == requireNonNull(toClass) || toClass == Object.class) {
             return (T) value;
         }
 
         Class<?> fromClass = value.getClass();
 
-        Converter<Object, T> c = (Converter<Object, T>) CONVERSION_MAP.get(new ConversionKey(fromClass, toClass));
+        Function<Object, T> c = (Function<Object, T>) CONVERSION_MAP.get(new ConversionKey(fromClass, toClass));
         if (c == null) {
-            throw new IllegalArgumentException(String.format("No converter for %s to %s", value.getClass().getName(), toClass.getSimpleName()));
+            throw new IllegalArgumentException(String.format("No converter for %s to %s", fromClass.getName(), toClass.getSimpleName()));
         }
 
-        return c.convert(value);
+        return c.apply(value);
     }
 }

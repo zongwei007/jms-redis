@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.ltsoft.jms.message.JmsMessageHelper.fromMap;
+import static com.ltsoft.jms.message.JmsMessageHelper.toStringKey;
 import static com.ltsoft.jms.util.KeyHelper.getDestinationKey;
 import static com.ltsoft.jms.util.KeyHelper.getDestinationPropsKey;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,7 +72,7 @@ public class JMSProducerImplTest {
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
             assertThat(messageId).isNotEmpty();
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message).isInstanceOf(TextMessage.class);
         }
     }
@@ -84,7 +86,7 @@ public class JMSProducerImplTest {
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
             assertThat(messageId).isNotEmpty();
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message).isInstanceOf(MapMessage.class);
         }
     }
@@ -96,7 +98,7 @@ public class JMSProducerImplTest {
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
             assertThat(messageId).isNotEmpty();
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message).isInstanceOf(StreamMessage.class);
         }
     }
@@ -111,7 +113,7 @@ public class JMSProducerImplTest {
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
             assertThat(messageId).isNotEmpty();
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message).isInstanceOf(ObjectMessage.class);
         }
     }
@@ -144,7 +146,7 @@ public class JMSProducerImplTest {
 
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message.getJMSTimestamp()).isEqualTo(0);
         }
     }
@@ -222,7 +224,7 @@ public class JMSProducerImplTest {
 
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message.getBooleanProperty("bool")).isTrue();
             assertThat(message.getByteProperty("byte")).isEqualTo(Byte.valueOf("0"));
             assertThat(message.getDoubleProperty("double")).isEqualTo(10D);
@@ -257,7 +259,7 @@ public class JMSProducerImplTest {
 
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message.getJMSCorrelationIDAsBytes()).isEqualTo(idAsBytes);
         }
     }
@@ -271,7 +273,7 @@ public class JMSProducerImplTest {
 
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message.getJMSCorrelationID()).isEqualTo(id);
         }
     }
@@ -297,7 +299,7 @@ public class JMSProducerImplTest {
 
         try (Jedis client = pool.getResource()) {
             String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = JmsMessageHelper.fromMap(client.hgetAll(getDestinationPropsKey(queue, messageId)));
+            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
             assertThat(message.getJMSReplyTo()).isEqualTo(reply);
         }
     }

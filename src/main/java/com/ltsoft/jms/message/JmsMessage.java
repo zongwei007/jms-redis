@@ -2,6 +2,8 @@ package com.ltsoft.jms.message;
 
 import com.ltsoft.jms.util.MessageProperty;
 import com.ltsoft.jms.util.MessageType;
+import com.ltsoft.jms.util.TypeConversionSupport;
+import com.ltsoft.jms.util.TypeSerializeSupport;
 
 import javax.jms.Destination;
 import javax.jms.JMSException;
@@ -282,6 +284,23 @@ public class JmsMessage implements Message {
 
     @Override
     public boolean isBodyAssignableTo(Class c) throws JMSException {
+        Object body = getBody(Object.class);
+        if (TypeConversionSupport.can(body, c)) {
+            try {
+                TypeConversionSupport.convert(body, c);
+                return true;
+            } catch (Exception e) {
+                //do nothing
+            }
+        }
         return false;
+    }
+
+    public byte[] getBody() throws JMSException {
+        return TypeSerializeSupport.serialize(getBody(Object.class));
+    }
+
+    public void setBody(byte[] bodyBytes) throws JMSException {
+        throw new JMSException("Not Implemented");
     }
 }

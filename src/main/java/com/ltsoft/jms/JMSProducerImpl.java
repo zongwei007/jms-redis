@@ -2,7 +2,6 @@ package com.ltsoft.jms;
 
 import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.message.JmsMessage;
-import com.ltsoft.jms.message.JmsMessageHelper;
 import com.ltsoft.jms.util.MessageProperty;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.Pipeline;
@@ -13,7 +12,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
-import static com.ltsoft.jms.message.JmsMessageHelper.getMessageId;
+import static com.ltsoft.jms.message.JmsMessageHelper.*;
 import static com.ltsoft.jms.util.KeyHelper.*;
 import static com.ltsoft.jms.util.ThreadPool.cachedPool;
 
@@ -46,43 +45,37 @@ public class JMSProducerImpl implements JMSProducer {
             long now = Instant.now().getEpochSecond();
             long expire = 1000; //TODO 读取配置
 
-//            if (DeliveryMode.PERSISTENT == deliveryMode) {
-//                String topicItemConsumerKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
-//                //获取频道相关的所有订阅者
-//                Set<String> consumerIds = client.zrangeByScore(getTopicConsumersKey(destination), now - expire, now + expire);
-//
-//                Pipeline pipe = client.pipelined();
-//                pipe.multi();
-//                pipe.hmset(propsKey, JmsMessageHelper.toMap(message));
-//                pipe.set(bodyKey, message.getBody(byte[].class));
-//                pipe.sadd(topicItemConsumerKey, consumerIds.toArray(new String[consumerIds.size()]));
-//                for (String consumerId : consumerIds) {
-//                    pipe.lpush(getTopicConsumerListKey(destination, consumerId), message.getJMSMessageID());
-//                }
-//                pipe.exec();
-//                if (timeToLive > 0) {
-//                    pipe.pexpire(propsKey, timeToLive);
-//                    pipe.pexpire(bodyKey, timeToLive);
-//                    pipe.pexpire(topicItemConsumerKey, timeToLive);
-//                }
-//                pipe.sync();
-//            } else {
-//                try {
-//                    Map<byte[], byte[]> props = JmsMessageHelper.toMap(message);
-//                    props.put(JMSX_BODY.getBytes(), message.getBody(byte[].class));
-//                    client.publish(getDestinationKey(destination).getBytes(), getObjectMapper().writeValueAsBytes(props));
-//                } catch (JsonProcessingException e) {
-//                    throw wrapperException(e);
-//                }
-//            }
+            if (DeliveryMode.PERSISTENT == deliveryMode) {
+                String topicItemConsumerKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
+                //获取频道相关的所有订阅者
+                Set<String> consumerIds = client.zrangeByScore(getTopicConsumersKey(destination), now - expire, now + expire);
+
+                Pipeline pipe = client.pipelined();
+                pipe.multi();
+                pipe.hmset(propsKey, toBytesKey(toMap(message)));
+                pipe.set(bodyKey, message.getBody(byte[].class));
+                pipe.sadd(topicItemConsumerKey, consumerIds.toArray(new String[consumerIds.size()]));
+                for (String consumerId : consumerIds) {
+                    pipe.lpush(getTopicConsumerListKey(destination, consumerId), message.getJMSMessageID());
+                }
+                pipe.exec();
+                if (timeToLive > 0) {
+                    pipe.pexpire(propsKey, timeToLive);
+                    pipe.pexpire(bodyKey, timeToLive);
+                    pipe.pexpire(topicItemConsumerKey, timeToLive);
+                }
+                pipe.sync();
+            } else {
+                client.publish(getDestinationKey(destination).getBytes(), toBytes(message));
+            }
         } else if (destination instanceof Queue) {
             byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
             byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
-            byte[] body = message.getBody(byte[].class);
+            byte[] body = message.getBody();
 
             Pipeline pipe = client.pipelined();
             pipe.multi();
-            pipe.hmset(propsKey, JmsMessageHelper.toMap(message));
+            pipe.hmset(propsKey, toBytesKey(toMap(message)));
             if (body != null) {
                 pipe.set(bodyKey, body);
             }

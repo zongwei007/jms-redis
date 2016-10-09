@@ -43,4 +43,36 @@ public class KeyHelper {
         return String.join(DELIMITER, PREFIX, destination.toString(), messageId, "BODY").getBytes();
     }
 
+    /**
+     * 消息目标消费者列表地址
+     *
+     * @param destination 消息目标
+     * @return 消息目标消费者列表 Key
+     */
+    public static String getTopicConsumersKey(Destination destination) {
+        return String.join(DELIMITER, PREFIX, destination.toString(), "CONSUMERS");
+    }
+
+    /**
+     * 消息实体消费者地址
+     *
+     * @param destination 消息目标
+     * @param messageId   消息 ID
+     * @return 消息实体消费者 Key
+     */
+    public static String getTopicItemConsumersKey(Destination destination, String messageId) {
+        return String.join(DELIMITER, PREFIX, destination.toString(), messageId, "CONSUMERS");
+    }
+
+    /**
+     * 消息目标消费者地址
+     *
+     * @param destination 消息目标
+     * @param instanceId  消费者 ID
+     * @return 消息目标消费者地址
+     */
+    public static String getTopicConsumerListKey(Destination destination, String instanceId) {
+        return String.join(DELIMITER, PREFIX, destination.toString(), instanceId);
+    }
+
 }

@@ -145,6 +145,11 @@ public class JmsBytesMessage extends JmsMessage implements BytesMessage {
     }
 
     @Override
+    public void setBody(byte[] bodyBytes) throws JMSException {
+
+    }
+
+    @Override
     public String getJMSType() throws JMSException {
         return MessageType.Bytes.name();
     }

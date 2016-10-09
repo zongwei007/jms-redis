@@ -130,6 +130,21 @@ public class JmsStreamMessage extends JmsMessage implements StreamMessage {
     }
 
     @Override
+    public void clearBody() throws JMSException {
+        super.clearBody();
+    }
+
+    @Override
+    public <T> T getBody(Class<T> c) throws JMSException {
+        return super.getBody(c);
+    }
+
+    @Override
+    public void setBody(byte[] bodyBytes) throws JMSException {
+
+    }
+
+    @Override
     public String getJMSType() throws JMSException {
         return MessageType.Stream.name();
     }
