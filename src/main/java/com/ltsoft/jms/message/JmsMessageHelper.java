@@ -19,6 +19,7 @@ public final class JmsMessageHelper {
 
     private static final String ID_PREFIX = "ID:";
 
+    public static final String JMS_MESSAGE_ID = "JMSMessageID";
     public static final String JMS_CORRELATION_ID = "JMSCorrelationID";
     public static final String JMS_DELIVERY_MODE = "JMSDeliveryMode";
     public static final String JMS_DESTINATION = "JMSDestination";
@@ -92,15 +93,21 @@ public final class JmsMessageHelper {
     }
 
     public static Map<String, byte[]> toStringKey(Map<byte[], byte[]> source) {
-        Map<String, byte[]> result = new HashMap<>();
-        source.forEach((key, value) -> result.put(new String(key), value));
-        return result;
+        if (source != null) {
+            Map<String, byte[]> result = new HashMap<>();
+            source.forEach((key, value) -> result.put(new String(key), value));
+            return result;
+        }
+        return null;
     }
 
     public static Map<byte[], byte[]> toBytesKey(Map<String, byte[]> source) {
-        Map<byte[], byte[]> result = new HashMap<>();
-        source.forEach((key, value) -> result.put(key.getBytes(), value));
-        return result;
+        if (source != null) {
+            Map<byte[], byte[]> result = new HashMap<>();
+            source.forEach((key, value) -> result.put(key.getBytes(), value));
+            return result;
+        }
+        return null;
     }
 
     public static Map<String, byte[]> toMap(JmsMessage message) throws JMSException {
@@ -178,6 +185,9 @@ public final class JmsMessageHelper {
                 String key = entry.getKey();
                 byte[] value = entry.getValue();
                 switch (key) {
+                    case JMS_MESSAGE_ID:
+                        message.setJMSMessageID(new String(value));
+                        break;
                     case JMS_CORRELATION_ID:
                         message.setJMSCorrelationID(new String(value));
                         break;
@@ -220,7 +230,6 @@ public final class JmsMessageHelper {
                 }
             }
 
-
             return (T) message;
         }
 
@@ -229,7 +238,8 @@ public final class JmsMessageHelper {
 
     public static byte[] toBytes(JmsMessage message) throws JMSException {
         Map<String, byte[]> map = toMap(message);
-
+        //与持久化为 Map 类型不同， bytes 中需要记录 MessageID 和 Body
+        map.put(JMS_MESSAGE_ID, message.getJMSMessageID().getBytes());
         map.put(JMSX_BODY, message.getBody());
 
         try (ByteArrayOutputStream os = new ByteArrayOutputStream();

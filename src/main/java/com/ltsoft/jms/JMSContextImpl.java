@@ -9,7 +9,9 @@ import redis.clients.jedis.JedisPool;
 
 import javax.jms.*;
 import java.io.Serializable;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Created by zongw on 2016/9/5.
@@ -23,6 +25,9 @@ public class JMSContextImpl implements JMSContext {
 
     private ExceptionListener exceptionListener;
 
+    private boolean autoStart = true;
+    private List<JMSConsumerImpl> consumers = new ArrayList<>();
+
     public JMSContextImpl(String clientId, JedisPool jedisPool, int sessionMode) {
         this(clientId, jedisPool, sessionMode, new JmsMessageFactory());
     }
@@ -34,7 +39,7 @@ public class JMSContextImpl implements JMSContext {
         this.messageFactory = messageFactory;
     }
 
-    JedisPool pool() {
+    public JedisPool pool() {
         return jedisPool;
     }
 
@@ -75,28 +80,27 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public void start() {
-        //TODO
+        consumers.forEach(JMSConsumerImpl::start);
     }
 
     @Override
     public void stop() {
-        //TODO
+        consumers.forEach(JMSConsumerImpl::close);
     }
 
     @Override
     public void setAutoStart(boolean autoStart) {
-        //TODO
+        this.autoStart = autoStart;
     }
 
     @Override
     public boolean getAutoStart() {
-        //TODO
-        return true;
+        return autoStart;
     }
 
     @Override
     public void close() {
-        //TODO
+        this.stop();
     }
 
     @Override
@@ -176,7 +180,13 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public JMSConsumer createConsumer(Destination destination, String messageSelector, boolean noLocal) {
-        return new JMSConsumerImpl(clientId, jedisPool, sessionMode, destination, noLocal);
+        JMSConsumerImpl consumer = new JMSConsumerImpl(this, destination, noLocal, true, true);
+        if (getAutoStart()) {
+            consumer.start();
+        }
+        consumers.add(consumer);
+
+        return consumer;
     }
 
     @Override
@@ -189,34 +199,50 @@ public class JMSContextImpl implements JMSContext {
         return new JmsTopic(topicName);
     }
 
+    private JMSConsumer createNamedTopicConsumer(Topic topic, String name, boolean noLocal, boolean durable, boolean shared) {
+        if (consumers.stream().anyMatch(consumer -> Objects.equals(name, consumer.getSubscriptionName()))) {
+            if (!shared) {
+                throw new JMSRuntimeException(String.format("Consumer %s is exist", name));
+            }
+        }
+
+        JMSConsumerImpl consumer = new JMSConsumerImpl(this, topic, noLocal, durable, shared).setSubscriptionName(name);
+        if (getAutoStart()) {
+            consumer.start();
+        }
+        consumers.add(consumer);
+
+        return consumer;
+    }
+
     @Override
     public JMSConsumer createDurableConsumer(Topic topic, String name) {
-        return null;
+        return createDurableConsumer(topic, name, null, false);
     }
 
     @Override
     public JMSConsumer createDurableConsumer(Topic topic, String name, String messageSelector, boolean noLocal) {
-        return null;
+        return createNamedTopicConsumer(topic, name, noLocal, true, false);
     }
 
     @Override
     public JMSConsumer createSharedDurableConsumer(Topic topic, String name) {
-        return null;
+        return createSharedDurableConsumer(topic, name, null);
     }
 
     @Override
     public JMSConsumer createSharedDurableConsumer(Topic topic, String name, String messageSelector) {
-        return null;
+        return createNamedTopicConsumer(topic, name, false, true, true);
     }
 
     @Override
     public JMSConsumer createSharedConsumer(Topic topic, String sharedSubscriptionName) {
-        return null;
+        return createSharedConsumer(topic, sharedSubscriptionName, null);
     }
 
     @Override
     public JMSConsumer createSharedConsumer(Topic topic, String sharedSubscriptionName, String messageSelector) {
-        return null;
+        return createNamedTopicConsumer(topic, sharedSubscriptionName, false, false, true);
     }
 
     @Override
@@ -241,7 +267,10 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public void unsubscribe(String name) {
-        //TODO
+        consumers.stream()
+                .filter(consumer -> Objects.equals(name, consumer.getSubscriptionName()))
+                .peek(JMSConsumerImpl::close)
+                .forEach(consumer -> consumers.remove(consumer));
     }
 
     @Override

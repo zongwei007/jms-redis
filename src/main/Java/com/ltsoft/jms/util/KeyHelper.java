@@ -1,6 +1,9 @@
 package com.ltsoft.jms.util;
 
 import javax.jms.Destination;
+import java.time.Duration;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Created by zongw on 2016/10/3.
@@ -73,6 +76,21 @@ public class KeyHelper {
      */
     public static String getTopicConsumerListKey(Destination destination, String instanceId) {
         return String.join(DELIMITER, PREFIX, destination.toString(), instanceId);
+    }
+
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmmss");
+
+    public static String getBackupTimeFix(Duration backupDuration) {
+        long seconds = backupDuration.getSeconds();
+        return TIME_FORMATTER.format(LocalTime.ofSecondOfDay(LocalTime.now().toSecondOfDay() / seconds * seconds));
+    }
+
+    public static String getDestinationBackupPattern(String instanceId, String pattern) {
+        return String.join(DELIMITER, PREFIX, "BACKUP", instanceId, pattern);
+    }
+
+    public static String getDestinationBackupKey(Destination destination, String instanceId, Duration backupDuration) {
+        return getDestinationBackupPattern(instanceId, destination.toString() + ":" + getBackupTimeFix(backupDuration));
     }
 
 }

@@ -48,7 +48,7 @@ public class JmsConnectionFactory implements ConnectionFactory {
 
     @Override
     public JMSContext createContext(int sessionMode) {
-        if (sessionMode < JMSContext.SESSION_TRANSACTED || sessionMode > JMSContext.DUPS_OK_ACKNOWLEDGE) {
+        if (sessionMode == JMSContext.SESSION_TRANSACTED) {
             throw new JMSRuntimeException(MessageFormat.format("Unsupported sessionMode: {0}", sessionMode));
         }
 

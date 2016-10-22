@@ -24,7 +24,7 @@ public class JMSProducerImpl implements JMSProducer {
     private final JMSContextImpl context;
 
     private boolean disableMessageTimestamp = false;
-    private int deliveryMode;
+    private int deliveryMode = DeliveryMode.PERSISTENT;
     private int priority;
     private long timeToLive;
     private CompletionListener completionListener;
@@ -37,57 +37,58 @@ public class JMSProducerImpl implements JMSProducer {
         this.context = context;
     }
 
-    private JMSProducerImpl sendMessage(Jedis client, Destination destination, JmsMessage message) throws JMSException {
+    private JMSProducerImpl sendMessage(Destination destination, JmsMessage message) throws JMSException {
+        try (Jedis client = context.pool().getResource()) {
+            if (destination instanceof Topic) {
+                byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
+                byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
+                long now = Instant.now().getEpochSecond();
+                long expire = 1000; //TODO 读取配置
 
-        if (destination instanceof Topic) {
-            byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
-            byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
-            long now = Instant.now().getEpochSecond();
-            long expire = 1000; //TODO 读取配置
+                if (DeliveryMode.PERSISTENT == deliveryMode) {
+                    //获取频道相关的所有订阅者
+                    Set<String> consumers = client.zrangeByScore(getTopicConsumersKey(destination), now - expire, now + expire);
+                    String consumersKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
 
-            if (DeliveryMode.PERSISTENT == deliveryMode) {
-                String topicItemConsumerKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
-                //获取频道相关的所有订阅者
-                Set<String> consumerIds = client.zrangeByScore(getTopicConsumersKey(destination), now - expire, now + expire);
+                    Pipeline pipe = client.pipelined();
+                    pipe.multi();
+                    pipe.hmset(propsKey, toBytesKey(toMap(message)));
+                    pipe.set(bodyKey, message.getBody());
+                    pipe.sadd(consumersKey, consumers.toArray(new String[consumers.size()]));
+                    for (String consumerId : consumers) {
+                        pipe.lpush(getTopicConsumerListKey(destination, consumerId), message.getJMSMessageID());
+                    }
+                    pipe.exec();
+                    if (timeToLive > 0) {
+                        pipe.pexpire(propsKey, timeToLive);
+                        pipe.pexpire(bodyKey, timeToLive);
+                        pipe.pexpire(consumersKey, timeToLive);
+                    }
+                    pipe.sync();
+                } else {
+                    client.publish(getDestinationKey(destination).getBytes(), toBytes(message));
+                }
+            } else if (destination instanceof Queue) {
+                byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
+                byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
+                byte[] body = message.getBody();
 
                 Pipeline pipe = client.pipelined();
                 pipe.multi();
                 pipe.hmset(propsKey, toBytesKey(toMap(message)));
-                pipe.set(bodyKey, message.getBody(byte[].class));
-                pipe.sadd(topicItemConsumerKey, consumerIds.toArray(new String[consumerIds.size()]));
-                for (String consumerId : consumerIds) {
-                    pipe.lpush(getTopicConsumerListKey(destination, consumerId), message.getJMSMessageID());
+                if (body != null) {
+                    pipe.set(bodyKey, body);
                 }
+                pipe.lpush(getDestinationKey(destination), message.getJMSMessageID());
                 pipe.exec();
                 if (timeToLive > 0) {
                     pipe.pexpire(propsKey, timeToLive);
                     pipe.pexpire(bodyKey, timeToLive);
-                    pipe.pexpire(topicItemConsumerKey, timeToLive);
                 }
                 pipe.sync();
             } else {
-                client.publish(getDestinationKey(destination).getBytes(), toBytes(message));
+                throw new JMSException("不支持的目的类型");
             }
-        } else if (destination instanceof Queue) {
-            byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
-            byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
-            byte[] body = message.getBody();
-
-            Pipeline pipe = client.pipelined();
-            pipe.multi();
-            pipe.hmset(propsKey, toBytesKey(toMap(message)));
-            if (body != null) {
-                pipe.set(bodyKey, body);
-            }
-            pipe.lpush(getDestinationKey(destination), message.getJMSMessageID());
-            pipe.exec();
-            if (timeToLive > 0) {
-                pipe.pexpire(propsKey, timeToLive);
-                pipe.pexpire(bodyKey, timeToLive);
-            }
-            pipe.sync();
-        } else {
-            throw new JMSException("不支持的目的类型");
         }
 
         return this;
@@ -117,17 +118,15 @@ public class JMSProducerImpl implements JMSProducer {
 
             if (completionListener != null) {
                 cachedPool().execute(() -> {
-                    try (Jedis client = context.pool().getResource()) {
-                        sendMessage(client, destination, item);
+                    try {
+                        sendMessage(destination, item);
                         completionListener.onCompletion(message);
                     } catch (Exception e) {
                         completionListener.onException(message, e);
                     }
                 });
             } else {
-                try (Jedis client = context.pool().getResource()) {
-                    sendMessage(client, destination, item);
-                }
+                sendMessage(destination, item);
             }
         } catch (JMSException e) {
             throw JMSExceptionSupport.wrap(e);

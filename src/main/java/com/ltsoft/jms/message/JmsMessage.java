@@ -1,5 +1,6 @@
 package com.ltsoft.jms.message;
 
+import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.util.MessageProperty;
 import com.ltsoft.jms.util.MessageType;
 import com.ltsoft.jms.util.TypeConversionSupport;
@@ -11,6 +12,7 @@ import javax.jms.Message;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 
 public class JmsMessage implements Message {
@@ -29,6 +31,9 @@ public class JmsMessage implements Message {
     private String messageFrom;
 
     private MessageProperty property = new MessageProperty();
+
+    private Consumer<JmsMessage> acknowledgeCallback;
+    private boolean readOnly;
 
     @Override
     public String getJMSMessageID() throws JMSException {
@@ -269,12 +274,18 @@ public class JmsMessage implements Message {
 
     @Override
     public void acknowledge() throws JMSException {
-
+        if (acknowledgeCallback != null) {
+            try {
+                acknowledgeCallback.accept(this);
+            } catch (Exception e) {
+                throw JMSExceptionSupport.create(e);
+            }
+        }
     }
 
     @Override
     public void clearBody() throws JMSException {
-
+        //do nothing
     }
 
     @Override
@@ -302,5 +313,13 @@ public class JmsMessage implements Message {
 
     public void setBody(byte[] bodyBytes) throws JMSException {
         throw new JMSException("Not Implemented");
+    }
+
+    public void setAcknowledgeCallback(Consumer<JmsMessage> callback) {
+        this.acknowledgeCallback = callback;
+    }
+
+    public void setReadOnly(boolean readOnly) {
+        this.readOnly = readOnly;
     }
 }
