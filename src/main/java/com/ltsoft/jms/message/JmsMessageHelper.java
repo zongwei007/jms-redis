@@ -37,7 +37,7 @@ public final class JmsMessageHelper {
     public static final String JMSX_GROUPSEQ = "JMSXGroupSeq";
     public static final String JMSX_USERID = "JMSXUserID";
 
-    private static final Map<Class, Byte> TYPE_TO_CODE = new HashMap<>();
+    public static final Map<Class, Byte> TYPE_TO_CODE = new HashMap<>();
     private static final Map<Byte, Class> CODE_TO_TYPE = new HashMap<>();
 
     private static final Byte NULL_CODE = (byte) 0xc0;

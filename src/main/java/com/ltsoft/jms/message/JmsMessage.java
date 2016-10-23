@@ -9,6 +9,7 @@ import com.ltsoft.jms.util.TypeSerializeSupport;
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import javax.jms.Message;
+import javax.jms.MessageNotWriteableException;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Optional;
@@ -321,5 +322,11 @@ public class JmsMessage implements Message {
 
     public void setReadOnly(boolean readOnly) {
         this.readOnly = readOnly;
+    }
+
+    protected void checkReadOnly() throws JMSException {
+        if (readOnly) {
+            throw new MessageNotWriteableException("Message is read-only");
+        }
     }
 }
