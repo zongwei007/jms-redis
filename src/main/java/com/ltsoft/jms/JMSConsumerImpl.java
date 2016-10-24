@@ -147,6 +147,13 @@ public class JMSConsumerImpl implements JMSConsumer {
         return key;
     }
 
+    /**
+     * 按消息 ID 读取消息体
+     *
+     * @param messageId 消息 ID
+     * @param another   如消息无效，获取另一条消息的方式
+     * @return JMS 消息
+     */
     private Message readMessage(String messageId, Supplier<Message> another) {
 
         byte[] propsKey = getDestinationPropsKey(destination, messageId);
@@ -198,6 +205,10 @@ public class JMSConsumerImpl implements JMSConsumer {
 
     @Override
     public Message receive(long timeout) {
+        if (!durable) {
+            throw new JMSRuntimeException("Destination is no persistent，use setMessageListener pls.");
+        }
+
         String key = getMessageListKey();
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
@@ -208,6 +219,10 @@ public class JMSConsumerImpl implements JMSConsumer {
 
     @Override
     public Message receiveNoWait() {
+        if (!durable) {
+            throw new JMSRuntimeException("Destination is no persistent，use setMessageListener pls.");
+        }
+
         String key = getMessageListKey();
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
