@@ -57,8 +57,8 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
         cachedPool().execute(() -> {
             try (Jedis client = context.pool().getResource()) {
                 client.subscribe(this, getDestinationKey(destination).getBytes());
-                // subscribe/unsubscribe 会将 client 的 pipelinedCommands 计数器增长
-                // 导致连接在被 pipe 使用时由于与预期计数不符造成 Read timed out 异常
+                // subscribe/unsubscribe 会使 client 的 pipelinedCommands 计数器增长
+                // 导致连接在被 pipe 使用时由于与预期计数不符，造成 Read timed out 异常
                 // 重置计数器以避免此类情况
                 client.getClient().resetPipelinedCount();
             }

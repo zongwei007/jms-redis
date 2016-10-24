@@ -324,7 +324,7 @@ public class JmsMessage implements Message {
         this.readOnly = readOnly;
     }
 
-    protected void checkReadOnly() throws JMSException {
+    void checkReadOnly() throws JMSException {
         if (readOnly) {
             throw new MessageNotWriteableException("Message is read-only");
         }

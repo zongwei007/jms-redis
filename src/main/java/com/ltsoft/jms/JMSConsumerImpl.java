@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -25,7 +26,8 @@ import static com.ltsoft.jms.util.ThreadPool.scheduledPool;
  */
 public class JMSConsumerImpl implements JMSConsumer {
 
-    private static final Duration BACKUP_DURATION = Duration.ofMinutes(1);
+    //TODO 读取配置
+    private static final long BACKUP_DURATION = Duration.ofMinutes(10).getSeconds();
     private static final long DELAY = Duration.ofHours(1).getSeconds();
 
     private final JMSContextImpl context;
@@ -42,6 +44,9 @@ public class JMSConsumerImpl implements JMSConsumer {
     private boolean started = false;
 
     private ScheduledFuture<?> pingThread;
+    private ScheduledFuture<?> cleanThread;
+
+    private Map<String, JmsMessage> consumingMessages = new ConcurrentHashMap<>();
 
     public JMSConsumerImpl(JMSContextImpl context, Destination destination, boolean noLocal, boolean durable, boolean shared) {
         this.context = context;
@@ -57,6 +62,36 @@ public class JMSConsumerImpl implements JMSConsumer {
 
     public boolean isNoLocal() {
         return noLocal;
+    }
+
+    JMSContextImpl context() {
+        return context;
+    }
+
+    private void consuming(JmsMessage message) {
+        try {
+            consumingMessages.put(message.getJMSMessageID(), message);
+        } catch (JMSException e) {
+            throw JMSExceptionSupport.wrap(e);
+        }
+    }
+
+    void consume(JmsMessage message) {
+        try {
+            consumingMessages.remove(message.getJMSMessageID());
+        } catch (JMSException e) {
+            throw JMSExceptionSupport.wrap(e);
+        }
+    }
+
+    void consumeAll() {
+        consumingMessages.values().forEach(message -> {
+            try {
+                message.acknowledge();
+            } catch (JMSException e) {
+                throw JMSExceptionSupport.wrap(e);
+            }
+        });
     }
 
     @Override
@@ -109,7 +144,7 @@ public class JMSConsumerImpl implements JMSConsumer {
             message.setJMSMessageID(messageId);
 
             if (durable) {
-                message.setAcknowledgeCallback(new JmsAcknowledgeCallback(context));
+                message.setAcknowledgeCallback(new JmsAcknowledgeCallback(this));
             }
 
             if (noLocal && Objects.equals(message.getJMSXMessageFrom(), context.getClientID())) {
@@ -125,6 +160,7 @@ public class JMSConsumerImpl implements JMSConsumer {
             }
 
             message.setReadOnly(true);
+            consuming(message);
 
             if (JMSContext.AUTO_ACKNOWLEDGE == context.getSessionMode()
                     || DeliveryMode.NON_PERSISTENT == message.getJMSDeliveryMode()) {
@@ -145,7 +181,7 @@ public class JMSConsumerImpl implements JMSConsumer {
     @Override
     public Message receive(long timeout) {
         String key = getMessageListKey();
-        String backupKey = getDestinationBackupKey(destination, context.getClientID(), BACKUP_DURATION);
+        String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
         try (Jedis client = context.pool().getResource()) {
             return readMessage(client.brpoplpush(key, backupKey, (int) timeout), () -> receive(timeout));
@@ -155,7 +191,7 @@ public class JMSConsumerImpl implements JMSConsumer {
     @Override
     public Message receiveNoWait() {
         String key = getMessageListKey();
-        String backupKey = getDestinationBackupKey(destination, context.getClientID(), BACKUP_DURATION);
+        String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
         try (Jedis client = context.pool().getResource()) {
             String messageId = client.rpoplpush(key, backupKey);
@@ -175,12 +211,31 @@ public class JMSConsumerImpl implements JMSConsumer {
         }
     }
 
+    private void cleanBackup() {
+        String backupKey = getDestinationBackupKey(destination, context.getClientID());
+        try (Jedis client = context.pool().getResource()) {
+            String messageId = client.rpop(backupKey);
+            if (!consumingMessages.containsKey(messageId)) {
+                boolean remoteExist = false;
+                if (destination instanceof Topic) {
+                    remoteExist = client.sismember(getTopicItemConsumersKey(destination, messageId), context.getClientID());
+                } else if (destination instanceof Queue) {
+                    remoteExist = client.exists(getDestinationPropsKey(destination, messageId));
+                }
+                if (remoteExist) {
+                    client.lpush(getMessageListKey(), messageId);
+                }
+            }
+        }
+    }
+
     /**
      * 在 Redis 中注册消费者，并定时更新过期时间
      */
     private void register() {
         if (durable) {
             this.pingThread = scheduledPool().scheduleWithFixedDelay(this::ping, 0, DELAY, TimeUnit.SECONDS);
+            this.cleanThread = scheduledPool().scheduleWithFixedDelay(this::cleanBackup, 0, BACKUP_DURATION, TimeUnit.SECONDS);
         }
     }
 
@@ -191,7 +246,8 @@ public class JMSConsumerImpl implements JMSConsumer {
         try (Jedis client = context.pool().getResource()) {
             if (pingThread != null) {
                 client.zrem(getTopicConsumersKey(destination), context.getClientID());
-                pingThread.cancel(true);
+                pingThread.cancel(false);
+                cleanThread.cancel(false);
             }
         }
     }

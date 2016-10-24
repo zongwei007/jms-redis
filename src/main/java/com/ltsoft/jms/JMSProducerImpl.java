@@ -42,6 +42,7 @@ public class JMSProducerImpl implements JMSProducer {
             if (destination instanceof Topic) {
                 byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
                 byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
+                byte[] body = message.getBody();
                 long now = Instant.now().getEpochSecond();
                 long expire = 1000; //TODO 读取配置
 
@@ -53,7 +54,9 @@ public class JMSProducerImpl implements JMSProducer {
                     Pipeline pipe = client.pipelined();
                     pipe.multi();
                     pipe.hmset(propsKey, toBytesKey(toMap(message)));
-                    pipe.set(bodyKey, message.getBody());
+                    if (body != null) {
+                        pipe.set(bodyKey, body);
+                    }
                     pipe.sadd(consumersKey, consumers.toArray(new String[consumers.size()]));
                     for (String consumerId : consumers) {
                         pipe.lpush(getTopicConsumerListKey(destination, consumerId), message.getJMSMessageID());

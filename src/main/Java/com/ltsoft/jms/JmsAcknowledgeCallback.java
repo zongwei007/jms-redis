@@ -16,33 +16,38 @@ import static com.ltsoft.jms.util.KeyHelper.*;
  */
 public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
 
-    private JMSContextImpl context;
+    private final JMSConsumerImpl consumer;
+    private final JMSContextImpl context;
 
-    public JmsAcknowledgeCallback(JMSContextImpl context) {
-        this.context = context;
+    public JmsAcknowledgeCallback(JMSConsumerImpl consumer) {
+        this.consumer = consumer;
+        this.context = consumer.context();
     }
 
     @Override
     public void accept(JmsMessage message) {
-        try (Jedis jedis = context.pool().getResource()) {
-            byte[] itemKey = getDestinationPropsKey(message.getJMSDestination(), message.getJMSMessageID());
-            Pipeline pipe = jedis.pipelined();
+        try (Jedis client = context.pool().getResource()) {
+            byte[] propsKey = getDestinationPropsKey(message.getJMSDestination(), message.getJMSMessageID());
+            Pipeline pipe = client.pipelined();
             if (message.getJMSDestination() instanceof Topic) {
                 String itemConsumersKey = getTopicItemConsumersKey(message.getJMSDestination(), message.getJMSMessageID());
 
-                jedis.srem(itemConsumersKey, context.getClientID());
-                long len = jedis.scard(itemConsumersKey);
+                client.srem(itemConsumersKey, context.getClientID());
+                long len = client.scard(itemConsumersKey);
                 if (len > 0) {
-                    pipe.clear();
+                    consumer.consume(message);
                     return;
                 }
 
                 pipe.del(itemConsumersKey);
             }
 
-            pipe.del(itemKey);
+            pipe.del(propsKey);
             pipe.del(getDestinationBodyKey(message.getJMSDestination(), message.getJMSMessageID()));
             pipe.sync();
+
+            //从消息消费列表中移除
+            consumer.consume(message);
         } catch (JMSException e) {
             throw JMSExceptionSupport.wrap(e);
         }

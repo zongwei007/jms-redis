@@ -100,6 +100,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public void close() {
+        this.acknowledge();
         this.stop();
     }
 
@@ -275,6 +276,6 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public void acknowledge() {
-        //TODO
+        consumers.forEach(JMSConsumerImpl::consumeAll);
     }
 }

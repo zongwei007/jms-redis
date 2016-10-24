@@ -10,19 +10,10 @@
 
     <properties>
         <jedis.version>2.9.0</jedis.version>
-        <mockito.version>2.1.0-beta.120</mockito.version>
-        <assertj.version>3.2.0</assertj.version>
-        <fst.version>2.43</fst.version>
+        <mockito.version>2.2.6</mockito.version>
+        <assertj.version>3.5.2</assertj.version>
+        <fst.version>2.48</fst.version>
     </properties>
-
-    <!-- 镜像地址 -->
-    <repositories>
-        <repository>
-            <id>aliyun-nexus-snapshots</id>
-            <name>Aliyun Nexus Snapshots</name>
-            <url>http://maven.aliyun.com/nexus/content/groups/public/</url>
-        </repository>
-    </repositories>
 
     <dependencies>
         <dependency>
