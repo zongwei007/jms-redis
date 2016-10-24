@@ -12,11 +12,14 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by zongw on 2016/9/5.
  */
 public class JMSContextImpl implements JMSContext {
+    //TODO 读取配置
+    private static final int DUPS_COUNT = 10;
 
     private final String clientId;
     private final JedisPool jedisPool;
@@ -27,6 +30,8 @@ public class JMSContextImpl implements JMSContext {
 
     private boolean autoStart = true;
     private List<JMSConsumerImpl> consumers = new ArrayList<>();
+
+    private AtomicInteger messageCount = new AtomicInteger();
 
     public JMSContextImpl(String clientId, JedisPool jedisPool, int sessionMode) {
         this(clientId, jedisPool, sessionMode, new JmsMessageFactory());
@@ -100,8 +105,8 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public void close() {
-        this.acknowledge();
-        this.stop();
+        acknowledge();
+        stop();
     }
 
     @Override
@@ -181,13 +186,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public JMSConsumer createConsumer(Destination destination, String messageSelector, boolean noLocal) {
-        JMSConsumerImpl consumer = new JMSConsumerImpl(this, destination, noLocal, true, true);
-        if (getAutoStart()) {
-            consumer.start();
-        }
-        consumers.add(consumer);
-
-        return consumer;
+        return createNamedConsumer(destination, null, noLocal, true, true);
     }
 
     @Override
@@ -200,17 +199,30 @@ public class JMSContextImpl implements JMSContext {
         return new JmsTopic(topicName);
     }
 
-    private JMSConsumer createNamedTopicConsumer(Topic topic, String name, boolean noLocal, boolean durable, boolean shared) {
-        if (consumers.stream().anyMatch(consumer -> Objects.equals(name, consumer.getSubscriptionName()))) {
+    private JMSConsumer createNamedConsumer(Destination destination, String name, boolean noLocal, boolean durable, boolean shared) {
+        JMSConsumerImpl consumer = new JMSConsumerImpl(this, destination, noLocal, durable, shared);
+
+        if (name != null && consumers.stream().anyMatch(item -> Objects.equals(name, item.getSubscriptionName()))) {
             if (!shared) {
                 throw new JMSRuntimeException(String.format("Consumer %s is exist", name));
             }
+            consumer.setSubscriptionName(name);
         }
 
-        JMSConsumerImpl consumer = new JMSConsumerImpl(this, topic, noLocal, durable, shared).setSubscriptionName(name);
         if (getAutoStart()) {
             consumer.start();
         }
+
+        if (JMSContext.DUPS_OK_ACKNOWLEDGE == sessionMode) {
+            consumer.onReceive(message -> {
+                int count = messageCount.incrementAndGet();
+                if (count > DUPS_COUNT) {
+                    acknowledge();
+                    messageCount.set(0);
+                }
+            });
+        }
+
         consumers.add(consumer);
 
         return consumer;
@@ -223,7 +235,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public JMSConsumer createDurableConsumer(Topic topic, String name, String messageSelector, boolean noLocal) {
-        return createNamedTopicConsumer(topic, name, noLocal, true, false);
+        return createNamedConsumer(topic, name, noLocal, true, false);
     }
 
     @Override
@@ -233,7 +245,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public JMSConsumer createSharedDurableConsumer(Topic topic, String name, String messageSelector) {
-        return createNamedTopicConsumer(topic, name, false, true, true);
+        return createNamedConsumer(topic, name, false, true, true);
     }
 
     @Override
@@ -243,7 +255,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public JMSConsumer createSharedConsumer(Topic topic, String sharedSubscriptionName, String messageSelector) {
-        return createNamedTopicConsumer(topic, sharedSubscriptionName, false, false, true);
+        return createNamedConsumer(topic, sharedSubscriptionName, false, false, true);
     }
 
     @Override

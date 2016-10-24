@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static com.ltsoft.jms.util.KeyHelper.*;
@@ -38,6 +39,7 @@ public class JMSConsumerImpl implements JMSConsumer {
 
     private MessageListener messageListener;
     private String subscriptionName;
+    private Consumer<JmsMessage> onReceive;
 
     private Listener listener;
 
@@ -68,9 +70,25 @@ public class JMSConsumerImpl implements JMSConsumer {
         return context;
     }
 
+    String getSubscriptionName() {
+        return subscriptionName;
+    }
+
+    JMSConsumerImpl setSubscriptionName(String subscriptionName) {
+        this.subscriptionName = subscriptionName;
+        return this;
+    }
+
+    void onReceive(Consumer<JmsMessage> onReceive) {
+        this.onReceive = onReceive;
+    }
+
     private void consuming(JmsMessage message) {
         try {
             consumingMessages.put(message.getJMSMessageID(), message);
+            if (onReceive != null) {
+                onReceive.accept(message);
+            }
         } catch (JMSException e) {
             throw JMSExceptionSupport.wrap(e);
         }
@@ -300,14 +318,5 @@ public class JMSConsumerImpl implements JMSConsumer {
     @Override
     public <T> T receiveBodyNoWait(Class<T> c) {
         return receiveBody(c, receiveNoWait());
-    }
-
-    public String getSubscriptionName() {
-        return subscriptionName;
-    }
-
-    public JMSConsumerImpl setSubscriptionName(String subscriptionName) {
-        this.subscriptionName = subscriptionName;
-        return this;
     }
 }
