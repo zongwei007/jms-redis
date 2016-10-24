@@ -1,24 +1,29 @@
 package com.ltsoft.jms;
 
+import com.ltsoft.jms.exception.JMSExceptionSupport;
+import com.ltsoft.jms.message.JmsMessage;
+import com.ltsoft.jms.message.JmsMessageHelper;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 import javax.jms.JMSException;
 import javax.jms.Queue;
 import javax.jms.QueueBrowser;
 import java.util.Enumeration;
 import java.util.Iterator;
+import java.util.Map;
+
+import static com.ltsoft.jms.util.KeyHelper.*;
 
 /**
  * 队列浏览器
  */
-public class JMSQueueBrowserImpl implements QueueBrowser {
-    private final JedisPool pool;
+public class JMSQueueBrowserImpl implements QueueBrowser, AutoCloseable {
     private final Queue queue;
+    private final Jedis client;
 
-    JMSQueueBrowserImpl(Queue queue, JedisPool jedisPool) {
+    JMSQueueBrowserImpl(Queue queue, JMSContextImpl context) {
         this.queue = queue;
-        this.pool = jedisPool;
+        this.client = context.pool().getResource();
     }
 
     @Override
@@ -33,24 +38,24 @@ public class JMSQueueBrowserImpl implements QueueBrowser {
 
     @Override
     public Enumeration getEnumeration() throws JMSException {
-        return new QueueEnumeration(queue);
+        return new QueueEnumeration(queue, client);
     }
 
     @Override
     public void close() throws JMSException {
-
+        client.close();
     }
 
-    public class QueueEnumeration implements Enumeration {
+    private class QueueEnumeration implements Enumeration {
 
-        private final String queueKey;
+        private final Queue queue;
+        private final Jedis client;
         private final Iterator<String> keyIterator;
 
-        QueueEnumeration(Queue queue) {
-            this.queueKey = queue.toString();
-            try (Jedis client = pool.getResource()) {
-                this.keyIterator = client.lrange(queueKey, 0, -1).iterator();
-            }
+        QueueEnumeration(Queue queue, Jedis client) {
+            this.queue = queue;
+            this.client = client;
+            this.keyIterator = client.lrange(getDestinationKey(queue), 0, -1).iterator();
         }
 
         @Override
@@ -60,15 +65,28 @@ public class JMSQueueBrowserImpl implements QueueBrowser {
 
         @Override
         public Object nextElement() {
-//            String messageId = keyIterator.next();
-//            byte[] messageKey = getDestinationPropsKey(queue, messageId);
-//            try (Jedis client = pool.getResource()) {
-//                byte[] bytes = client.get(messageKey);
-//                return bytes == null ? null : getObjectMapper().readValue(bytes, Message.class);
-//            } catch (IOException e) {
-//                throw new JMSRuntimeException(e.getMessage(), "", e);
-//            }
-            return null;
+            String messageId = keyIterator.next();
+            byte[] propsKey = getDestinationPropsKey(queue, messageId);
+            try {
+                Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
+                if (props == null) {
+                    //消息有可能已过期
+                    client.close();
+                    return nextElement();
+                }
+
+                JmsMessage message = JmsMessageHelper.fromMap(props);
+                message.setJMSMessageID(messageId);
+
+                byte[] body = client.get(getDestinationBodyKey(queue, messageId));
+                if (body != null) {
+                    message.setBody(body);
+                }
+
+                return message;
+            } catch (JMSException e) {
+                throw JMSExceptionSupport.wrap(e);
+            }
         }
     }
 }

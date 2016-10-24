@@ -131,9 +131,9 @@ public class JMSConsumerImpl implements JMSConsumer {
 
     private Message readMessage(String messageId, Supplier<Message> another) {
 
-        byte[] itemKey = getDestinationPropsKey(destination, messageId);
+        byte[] propsKey = getDestinationPropsKey(destination, messageId);
         try (Jedis client = context.pool().getResource()) {
-            Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(itemKey));
+            Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
             if (props == null) {
                 //消息有可能已过期
                 client.close();
@@ -211,6 +211,9 @@ public class JMSConsumerImpl implements JMSConsumer {
         }
     }
 
+    /**
+     * 清理 Redis 中的已消费消息备份队列
+     */
     private void cleanBackup() {
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
         try (Jedis client = context.pool().getResource()) {
@@ -230,7 +233,7 @@ public class JMSConsumerImpl implements JMSConsumer {
     }
 
     /**
-     * 在 Redis 中注册消费者，并定时更新过期时间
+     * 在 Redis 中注册消费者，并定时更新过期时间及清理消费队列
      */
     private void register() {
         if (durable) {

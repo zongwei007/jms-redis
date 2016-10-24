@@ -253,7 +253,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public QueueBrowser createBrowser(Queue queue, String messageSelector) {
-        return new JMSQueueBrowserImpl(queue, jedisPool);
+        return new JMSQueueBrowserImpl(queue, this);
     }
 
     @Override
