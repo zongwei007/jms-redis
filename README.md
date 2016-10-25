@@ -35,7 +35,7 @@ public class Example {
         try (JMSContext context = factory.createContext()) {
             Queue queue = context.createQueue("Queue");
             JMSProducer producer = context.createProducer();
-            producer.send(context.createQueue("Queue"), "Queue Message");
+            producer.send(queue, "Queue Message");
 
             JMSConsumer consumer = context.createConsumer(queue);
             Message message = consumer.receiveNoWait();
