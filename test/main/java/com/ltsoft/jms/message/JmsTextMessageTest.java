@@ -7,6 +7,7 @@ import javax.jms.JMSException;
 import javax.jms.TextMessage;
 import java.util.List;
 
+import static com.ltsoft.jms.message.JmsMessageHelper.getMessageId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -18,6 +19,7 @@ public class JmsTextMessageTest {
     @Test
     public void testSerializeAndDeserialize() throws Exception {
         JmsTextMessage message = new JmsTextMessage();
+        message.setJMSMessageID(getMessageId());
         message.setText("text 和 中文内容");
 
         byte[] bytes = JmsMessageHelper.toBytes(message);

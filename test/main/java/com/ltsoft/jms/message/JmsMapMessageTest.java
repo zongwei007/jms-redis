@@ -8,6 +8,7 @@ import javax.jms.MapMessage;
 import javax.jms.MessageFormatRuntimeException;
 import java.util.Map;
 
+import static com.ltsoft.jms.message.JmsMessageHelper.getMessageId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -20,6 +21,7 @@ public class JmsMapMessageTest {
     public void testSerializeAndDeserialize() throws Exception {
 
         JmsMapMessage message = new JmsMapMessage();
+        message.setJMSMessageID(getMessageId());
         message.setInt("int", 5);
 
         byte[] bytes = JmsMessageHelper.toBytes(message);
@@ -145,6 +147,7 @@ public class JmsMapMessageTest {
     public void testBytes() throws Exception {
         byte[] strBytes = "It is a bytes".getBytes();
         JmsMapMessage message = new JmsMapMessage();
+        message.setJMSMessageID(getMessageId());
         message.setBytes("bytes", strBytes);
         message.setBytes("bytes-len", strBytes, 0, 2);
 
@@ -191,6 +194,7 @@ public class JmsMapMessageTest {
     @Test
     public void itemExists() throws Exception {
         JmsMapMessage message = new JmsMapMessage();
+        message.setJMSMessageID(getMessageId());
         message.setDouble("double", 5);
         message.setString("foo", null);
 
