@@ -17,3 +17,33 @@
 * 不支持 MessageSelector
 * 暂不支持优先级队列
 * 暂不支持延迟发送 (DeliveryDelay)
+
+## 使用方式
+
+```java
+import redis.clients.jedis.JedisPool;
+import com.ltsoft.jms.JmsConnectionFactory;
+
+import javax.jms.*;
+
+public class Example {
+
+    public static void main(String[] args) throws Exception {
+        JedisPool jedisPool = new JedisPool();
+        ConnectionFactory factory = new JmsConnectionFactory(jedisPool, "ClientId");
+
+        try (JMSContext context = factory.createContext()) {
+            Queue queue = context.createQueue("Queue");
+            JMSProducer producer = context.createProducer();
+            producer.send(queue, "Queue Message");
+
+            JMSConsumer consumer = context.createConsumer(queue);
+            Message message = consumer.receiveNoWait();
+            System.out.println(message.getBody(String.class));
+        }
+        
+        jedisPool.close();
+        System.exit(0);
+    }
+}
+```
