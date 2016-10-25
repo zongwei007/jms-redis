@@ -9,9 +9,16 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public final class ThreadPool {
 
-    private static final ExecutorService CACHED_POOL = Executors.newCachedThreadPool();
+    private static final ExecutorService CACHED_POOL;
 
-    private static final ScheduledExecutorService SCHEDULED_POOL = Executors.newScheduledThreadPool(5);
+    private static final ScheduledExecutorService SCHEDULED_POOL;
+
+    static {
+        CACHED_POOL = Executors.newCachedThreadPool();
+
+        int coreNum = Runtime.getRuntime().availableProcessors();
+        SCHEDULED_POOL = Executors.newScheduledThreadPool(coreNum > 1 ? coreNum : 2);
+    }
 
     private ThreadPool() {
         //禁用构造函数
