@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import javax.jms.ObjectMessage;
 
+import static com.ltsoft.jms.message.JmsMessageHelper.getMessageId;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -20,6 +21,7 @@ public class JmsObjectMessageTest {
         type.setString("foo");
 
         JmsObjectMessage message = new JmsObjectMessage();
+        message.setJMSMessageID(getMessageId());
         message.setObject(type);
 
         byte[] bytes = JmsMessageHelper.toBytes(message);
@@ -35,6 +37,7 @@ public class JmsObjectMessageTest {
         type.setString("foo");
 
         JmsObjectMessage message = new JmsObjectMessage();
+        message.setJMSMessageID(getMessageId());
         message.setObject(type);
 
         byte[] bytes = JmsMessageHelper.toBytes(message);
