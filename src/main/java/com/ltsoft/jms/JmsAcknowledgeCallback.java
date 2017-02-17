@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 import static com.ltsoft.jms.util.KeyHelper.*;
 
 /**
- * Created by zongw on 2016/10/12.
+ * 消息消费回调
  */
 public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
 

@@ -10,7 +10,7 @@ import javax.jms.ObjectMessage;
 import java.io.Serializable;
 
 /**
- * Created by zongw on 2016/9/7.
+ * 可序列化对象消息
  */
 public class JmsObjectMessage extends JmsMessage implements ObjectMessage {
 

@@ -71,8 +71,7 @@ public class JMSQueueBrowserImpl implements QueueBrowser, AutoCloseable {
                 Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
                 if (props == null) {
                     //消息有可能已过期
-                    client.close();
-                    return nextElement();
+                    return null;
                 }
 
                 JmsMessage message = JmsMessageHelper.fromMap(props);

@@ -19,7 +19,7 @@ public class PersistentListener implements Listener {
 
     private final JMSConsumerImpl consumer;
     private final MessageListener listener;
-    private boolean flag = true;
+    private boolean listening = true;
 
     public PersistentListener(JMSConsumerImpl consumer) {
         this.consumer = consumer;
@@ -29,17 +29,17 @@ public class PersistentListener implements Listener {
     @Override
     public void start() {
         cachedPool().execute(() -> {
-            while (flag) {
+            do {
                 Message message = consumer.receive(DURATION);
                 if (message != null) {
                     listener.onMessage(message);
                 }
-            }
+            } while (listening);
         });
     }
 
     @Override
     public void stop() {
-        this.flag = false;
+        this.listening = false;
     }
 }

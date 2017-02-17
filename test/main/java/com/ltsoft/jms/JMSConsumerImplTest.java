@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * Created by zongwei on 16-7-26.
+ * 消费者测试
  */
 public class JMSConsumerImplTest {
 
@@ -32,7 +32,7 @@ public class JMSConsumerImplTest {
     public static void setupBeforeClass() throws Exception {
         pool = new JedisPool();
 
-        context = new JMSContextImpl("ClientID", pool, JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JMSContextImpl("ClientID", pool, new JmsConfig(), JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass

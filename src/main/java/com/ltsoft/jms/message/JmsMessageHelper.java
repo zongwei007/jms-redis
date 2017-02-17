@@ -13,7 +13,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 
 /**
- * Created by zongwei on 16-7-19.
+ * 消息转换工具类
  */
 public final class JmsMessageHelper {
 

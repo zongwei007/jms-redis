@@ -7,7 +7,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * Created by zongw on 2016/9/30.
+ * 消息属性
  */
 public class MessageProperty {
 

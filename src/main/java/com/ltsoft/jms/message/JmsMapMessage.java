@@ -10,7 +10,7 @@ import javax.jms.MapMessage;
 import java.util.*;
 
 /**
- * Created by zongw on 2016/9/7.
+ * Map 消息
  */
 public class JmsMapMessage extends JmsMessage implements MapMessage {
 

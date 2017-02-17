@@ -9,7 +9,7 @@ import javax.jms.MessageFormatException;
 import java.io.*;
 
 /**
- * Created by zongw on 2016/9/7.
+ * 字节数组消息
  */
 public class JmsBytesMessage extends JmsMessage implements BytesMessage {
 

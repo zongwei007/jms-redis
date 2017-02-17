@@ -14,7 +14,7 @@ import static com.ltsoft.jms.message.JmsMessageHelper.TYPE_TO_CODE;
 
 
 /**
- * Created by zongw on 2016/9/7.
+ * 字节流消息
  */
 public class JmsStreamMessage extends JmsMessage implements StreamMessage {
 

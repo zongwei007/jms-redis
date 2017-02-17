@@ -17,7 +17,7 @@ public final class ThreadPool {
         CACHED_POOL = Executors.newCachedThreadPool();
 
         int coreNum = Runtime.getRuntime().availableProcessors();
-        SCHEDULED_POOL = Executors.newScheduledThreadPool(coreNum > 1 ? coreNum : 2);
+        SCHEDULED_POOL = Executors.newScheduledThreadPool(Math.max(2, coreNum));
     }
 
     private ThreadPool() {

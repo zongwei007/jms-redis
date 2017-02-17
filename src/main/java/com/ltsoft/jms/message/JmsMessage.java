@@ -15,7 +15,9 @@ import java.util.Enumeration;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-
+/**
+ * 普通消息，无消息体
+ */
 public class JmsMessage implements Message {
 
     private String messageId;

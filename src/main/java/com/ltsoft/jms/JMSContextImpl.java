@@ -15,15 +15,18 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Created by zongw on 2016/9/5.
+ * JMS 操作上下文
  */
 public class JMSContextImpl implements JMSContext {
-    //TODO 读取配置
-    private static final int DUPS_COUNT = 10;
 
     private final String clientId;
+
     private final JedisPool jedisPool;
+
+    private final JmsConfig jmsConfig;
+
     private final int sessionMode;
+
     private final JmsMessageFactory messageFactory;
 
     private ExceptionListener exceptionListener;
@@ -33,13 +36,14 @@ public class JMSContextImpl implements JMSContext {
 
     private AtomicInteger messageCount = new AtomicInteger();
 
-    public JMSContextImpl(String clientId, JedisPool jedisPool, int sessionMode) {
-        this(clientId, jedisPool, sessionMode, new JmsMessageFactory());
+    public JMSContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, int sessionMode) {
+        this(clientId, jedisPool, jmsConfig, sessionMode, new JmsMessageFactory());
     }
 
-    private JMSContextImpl(String clientId, JedisPool jedisPool, int sessionMode, JmsMessageFactory messageFactory) {
+    private JMSContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, int sessionMode, JmsMessageFactory messageFactory) {
         this.clientId = clientId;
         this.jedisPool = jedisPool;
+        this.jmsConfig = jmsConfig;
         this.sessionMode = sessionMode;
         this.messageFactory = messageFactory;
     }
@@ -48,9 +52,13 @@ public class JMSContextImpl implements JMSContext {
         return jedisPool;
     }
 
+    public JmsConfig config() {
+        return jmsConfig;
+    }
+
     @Override
     public JMSContext createContext(int sessionMode) {
-        return new JMSContextImpl(clientId, jedisPool, sessionMode, messageFactory);
+        return new JMSContextImpl(clientId, jedisPool, jmsConfig, sessionMode, messageFactory);
     }
 
     @Override
@@ -216,7 +224,7 @@ public class JMSContextImpl implements JMSContext {
         if (JMSContext.DUPS_OK_ACKNOWLEDGE == sessionMode) {
             consumer.onReceive(message -> {
                 int count = messageCount.incrementAndGet();
-                if (count > DUPS_COUNT) {
+                if (count > jmsConfig.getDupsCount()) {
                     acknowledge();
                     messageCount.set(0);
                 }
