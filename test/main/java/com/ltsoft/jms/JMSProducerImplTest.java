@@ -1,7 +1,6 @@
 package com.ltsoft.jms;
 
 import com.ltsoft.jms.message.JmsMessage;
-import com.ltsoft.jms.message.JmsMessageHelper;
 import com.ltsoft.jms.type.IntegerType;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -23,7 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 
 /**
- * Created by zongw on 2016/10/3.
+ * 消息提供者测试
  */
 public class JMSProducerImplTest {
 

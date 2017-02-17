@@ -6,10 +6,8 @@ import org.junit.Test;
 
 import javax.jms.InvalidClientIDRuntimeException;
 
-import static org.junit.Assert.*;
-
 /**
- * Created by zongw on 2016/9/9.
+ * 消息上下文测试
  */
 public class JMSContextImplTest {
 

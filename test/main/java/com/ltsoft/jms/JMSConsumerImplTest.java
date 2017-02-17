@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
- * Created by zongwei on 16-7-26.
+ * 消费者测试
  */
 public class JMSConsumerImplTest {
 

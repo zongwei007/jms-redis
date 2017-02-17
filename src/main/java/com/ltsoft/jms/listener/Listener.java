@@ -1,7 +1,7 @@
 package com.ltsoft.jms.listener;
 
 /**
- * Created by Zongwei on 2016/7/27.
+ * 消息监听者
  */
 public interface Listener {
 

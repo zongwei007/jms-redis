@@ -9,7 +9,7 @@
     <version>0.1-SNAPSHOT</version>
 
     <properties>
-        <jedis.version>2.9.0</jedis.version>
+        <jedis.version>2.10.1</jedis.version>
         <mockito.version>2.2.6</mockito.version>
         <assertj.version>3.5.2</assertj.version>
         <fst.version>2.48</fst.version>

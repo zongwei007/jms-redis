@@ -15,7 +15,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Created by zongw on 2016/9/5.
+ * JMS 操作上下文
  */
 public class JMSContextImpl implements JMSContext {
     //TODO 读取配置

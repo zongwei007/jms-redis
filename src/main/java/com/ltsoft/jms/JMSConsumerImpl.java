@@ -23,7 +23,7 @@ import static com.ltsoft.jms.util.KeyHelper.*;
 import static com.ltsoft.jms.util.ThreadPool.scheduledPool;
 
 /**
- * Created by zongw on 2016/9/25.
+ * 消费者实现
  */
 public class JMSConsumerImpl implements JMSConsumer {
 
@@ -198,6 +198,8 @@ public class JMSConsumerImpl implements JMSConsumer {
         }
     }
 
+    private static final String DESTINATION_IS_NO_PERSISTENT = "Destination is no persistent，use setMessageListener pls.";
+
     @Override
     public Message receive() {
         return receive(0);
@@ -206,7 +208,7 @@ public class JMSConsumerImpl implements JMSConsumer {
     @Override
     public Message receive(long timeout) {
         if (!durable) {
-            throw new JMSRuntimeException("Destination is no persistent，use setMessageListener pls.");
+            throw new JMSRuntimeException(DESTINATION_IS_NO_PERSISTENT);
         }
 
         String key = getMessageListKey();
@@ -220,7 +222,7 @@ public class JMSConsumerImpl implements JMSConsumer {
     @Override
     public Message receiveNoWait() {
         if (!durable) {
-            throw new JMSRuntimeException("Destination is no persistent，use setMessageListener pls.");
+            throw new JMSRuntimeException(DESTINATION_IS_NO_PERSISTENT);
         }
 
         String key = getMessageListKey();
@@ -251,6 +253,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
         try (Jedis client = context.pool().getResource()) {
             String messageId = client.rpop(backupKey);
+            // TODO 再实现一层备份
             if (!consumingMessages.containsKey(messageId)) {
                 boolean remoteExist = false;
                 if (destination instanceof Topic) {

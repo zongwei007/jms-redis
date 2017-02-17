@@ -2,6 +2,9 @@ package com.ltsoft.jms.util;
 
 import org.junit.Test;
 
+/**
+ * 类型转换测试
+ */
 public class TypeConversionSupportTest {
 
     @Test

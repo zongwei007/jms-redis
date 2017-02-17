@@ -4,6 +4,9 @@ import redis.clients.jedis.JedisPool;
 
 import javax.jms.*;
 import java.text.MessageFormat;
+import java.util.Arrays;
+
+import static javax.jms.JMSContext.*;
 
 /**
  * JMS 连接工厂的实现
@@ -43,12 +46,12 @@ public class JmsConnectionFactory implements ConnectionFactory {
 
     @Override
     public JMSContext createContext() {
-        return createContext(JMSContext.AUTO_ACKNOWLEDGE);
+        return createContext(AUTO_ACKNOWLEDGE);
     }
 
     @Override
     public JMSContext createContext(int sessionMode) {
-        if (sessionMode == JMSContext.SESSION_TRANSACTED) {
+        if (!Arrays.asList(AUTO_ACKNOWLEDGE, CLIENT_ACKNOWLEDGE, DUPS_OK_ACKNOWLEDGE).contains(sessionMode)) {
             throw new JMSRuntimeException(MessageFormat.format("Unsupported sessionMode: {0}", sessionMode));
         }
 

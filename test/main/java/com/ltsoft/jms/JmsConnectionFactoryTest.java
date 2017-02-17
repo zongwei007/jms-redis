@@ -8,6 +8,9 @@ import javax.jms.JMSRuntimeException;
 import static org.junit.Assert.assertEquals;
 
 
+/**
+ * 消息连接工厂测试
+ */
 public class JmsConnectionFactoryTest {
 
     private static final String USER = "USER";
@@ -33,12 +36,10 @@ public class JmsConnectionFactoryTest {
         assertEquals(context.getSessionMode(), JMSContext.AUTO_ACKNOWLEDGE);
     }
 
-    @Test
+    @Test(expected = JMSRuntimeException.class)
     public void createContextSessionMode() throws Exception {
         JmsConnectionFactory factory = new JmsConnectionFactory();
-        JMSContext context = factory.createContext(JMSContext.SESSION_TRANSACTED);
-
-        assertEquals(context.getSessionMode(), JMSContext.SESSION_TRANSACTED);
+        factory.createContext(JMSContext.SESSION_TRANSACTED);
     }
 
     @Test(expected = JMSRuntimeException.class)

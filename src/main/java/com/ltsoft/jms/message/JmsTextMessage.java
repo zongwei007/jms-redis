@@ -9,7 +9,7 @@ import javax.jms.JMSException;
 import javax.jms.TextMessage;
 
 /**
- * Created by zongw on 2016/9/7.
+ * 文本消息
  */
 public class JmsTextMessage extends JmsMessage implements TextMessage {
 

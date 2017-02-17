@@ -1,5 +1,5 @@
 # JMS-Redis
-基于 Redis 实现的实验用 Java 消息服务，仅支持 JMS 2.0 的部分特性
+基于 Redis 实现的实验用 Java 消息服务，仅支持 JMS 2.0 的部分特性。
 
 ## 支持特性
 
@@ -47,3 +47,7 @@ public class Example {
     }
 }
 ```
+
+## 关于编译
+
+项目依赖的是个人修改过的 Jedis（修正了一处 BUG），见：[zongwei007/jedis](https://github.com/zongwei007/jedis/tree/2.10)

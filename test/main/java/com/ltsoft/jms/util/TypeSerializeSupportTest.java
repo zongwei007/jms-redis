@@ -5,7 +5,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 /**
- * Created by zongw on 2016/10/9.
+ * 类型序列化测试
  */
 public class TypeSerializeSupportTest {
 
