@@ -9,7 +9,6 @@ import com.ltsoft.jms.message.JmsMessageHelper;
 import redis.clients.jedis.Jedis;
 
 import javax.jms.*;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -26,10 +25,6 @@ import static com.ltsoft.jms.util.ThreadPool.scheduledPool;
  * 消费者实现
  */
 public class JMSConsumerImpl implements JMSConsumer {
-
-    //TODO 读取配置
-    private static final long BACKUP_DURATION = Duration.ofMinutes(10).getSeconds();
-    private static final long DELAY = Duration.ofHours(1).getSeconds();
 
     private final JMSContextImpl context;
     private final Destination destination;
@@ -66,7 +61,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         return noLocal;
     }
 
-    JMSContextImpl context() {
+    public JMSContextImpl context() {
         return context;
     }
 
@@ -129,7 +124,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         if (durable) {
             this.listener = new PersistentListener(this);
         } else {
-            this.listener = new NoPersistentListener(context, this);
+            this.listener = new NoPersistentListener(this);
         }
 
         if (context.getAutoStart()) {
@@ -273,8 +268,13 @@ public class JMSConsumerImpl implements JMSConsumer {
      */
     private void register() {
         if (durable) {
-            this.pingThread = scheduledPool().scheduleWithFixedDelay(this::ping, 0, DELAY, TimeUnit.SECONDS);
-            this.cleanThread = scheduledPool().scheduleWithFixedDelay(this::cleanBackup, 0, BACKUP_DURATION, TimeUnit.SECONDS);
+            JmsConfig config = context.config();
+
+            this.pingThread = scheduledPool().scheduleWithFixedDelay(
+                    this::ping, 0, config.getConsumerExpire().getSeconds(), TimeUnit.SECONDS);
+
+            this.cleanThread = scheduledPool().scheduleWithFixedDelay(
+                    this::cleanBackup, 0, config.getBackDuration().getSeconds(), TimeUnit.SECONDS);
         }
     }
 

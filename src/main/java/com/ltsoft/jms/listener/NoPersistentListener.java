@@ -34,8 +34,8 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
     private final boolean noLocal;
     private ScheduledFuture<?> pingSchedule;
 
-    public NoPersistentListener(JMSContextImpl context, JMSConsumerImpl consumer) {
-        this.context = context;
+    public NoPersistentListener(JMSConsumerImpl consumer) {
+        this.context = consumer.context();
         this.clientID = context.getClientID();
         this.listener = consumer.getMessageListener();
         this.destination = consumer.getDestination();
@@ -71,13 +71,18 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
             }
         });
 
-        //TODO 读取配置
-        this.pingSchedule = scheduledPool().scheduleAtFixedRate(this::ping, 30, 30, TimeUnit.MINUTES);
+        long period = context.config().getListenerKeepLive().getSeconds();
+        if (period != 0) {
+            this.pingSchedule = scheduledPool().scheduleAtFixedRate(this::ping, 0, period, TimeUnit.SECONDS);
+        }
     }
 
     @Override
     public void stop() {
         this.unsubscribe();
-        pingSchedule.cancel(false);
+
+        if (pingSchedule != null) {
+            pingSchedule.cancel(false);
+        }
     }
 }

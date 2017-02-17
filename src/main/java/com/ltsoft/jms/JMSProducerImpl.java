@@ -17,7 +17,7 @@ import static com.ltsoft.jms.util.KeyHelper.*;
 import static com.ltsoft.jms.util.ThreadPool.cachedPool;
 
 /**
- * Created by zongw on 2016/9/9.
+ * JMS 消息提供者
  */
 public class JMSProducerImpl implements JMSProducer {
 
@@ -44,7 +44,7 @@ public class JMSProducerImpl implements JMSProducer {
                 byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
                 byte[] body = message.getBody();
                 long now = Instant.now().getEpochSecond();
-                long expire = 1000; //TODO 读取配置
+                long expire = context.config().getConsumerExpire().getSeconds();
 
                 if (DeliveryMode.PERSISTENT == deliveryMode) {
                     //获取频道相关的所有订阅者

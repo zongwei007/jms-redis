@@ -36,7 +36,7 @@ public class JMSProducerImplTest {
     public static void setupBeforeClass() {
         pool = new JedisPool("localhost", 6379);
 
-        context = new JMSContextImpl("ClientID", pool, JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JMSContextImpl("ClientID", pool, new JmsConfig(), JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass

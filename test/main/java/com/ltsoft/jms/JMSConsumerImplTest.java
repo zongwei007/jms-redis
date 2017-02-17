@@ -32,7 +32,7 @@ public class JMSConsumerImplTest {
     public static void setupBeforeClass() throws Exception {
         pool = new JedisPool();
 
-        context = new JMSContextImpl("ClientID", pool, JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JMSContextImpl("ClientID", pool, new JmsConfig(), JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass

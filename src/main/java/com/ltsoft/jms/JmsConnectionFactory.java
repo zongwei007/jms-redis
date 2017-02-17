@@ -14,7 +14,10 @@ import static javax.jms.JMSContext.*;
 public class JmsConnectionFactory implements ConnectionFactory {
 
     private JedisPool jedisPool;
+
     private String clientId;
+
+    private JmsConfig jmsConfig;
 
     /**
      * 公共构造函数
@@ -24,14 +27,26 @@ public class JmsConnectionFactory implements ConnectionFactory {
     }
 
     /**
-     * 基于 JedisPool 和 clientId 构造
+     * 基于 JedisPool 和 clientId 构建
+     *
+     * @param clientId  客户端 ID
+     * @param jedisPool Jedis 连接池
+     */
+    public JmsConnectionFactory(String clientId, JedisPool jedisPool) {
+        this(clientId, jedisPool, new JmsConfig());
+    }
+
+    /**
+     * 基于 JedisPool、clientId 和配置信息构建
      *
      * @param jedisPool Jedis 连接池
      * @param clientId  客户端 ID
+     * @param jmsConfig 运行配置
      */
-    public JmsConnectionFactory(JedisPool jedisPool, String clientId) {
+    public JmsConnectionFactory(String clientId, JedisPool jedisPool, JmsConfig jmsConfig) {
         setJedisPool(jedisPool);
         setClientId(clientId);
+        setJmsConfig(jmsConfig);
     }
 
     @Override
@@ -55,7 +70,7 @@ public class JmsConnectionFactory implements ConnectionFactory {
             throw new JMSRuntimeException(MessageFormat.format("Unsupported sessionMode: {0}", sessionMode));
         }
 
-        return new JMSContextImpl(clientId, jedisPool, sessionMode);
+        return new JMSContextImpl(clientId, jedisPool, jmsConfig, sessionMode);
     }
 
     @Override
@@ -74,5 +89,9 @@ public class JmsConnectionFactory implements ConnectionFactory {
 
     public void setClientId(String clientId) {
         this.clientId = clientId;
+    }
+
+    public void setJmsConfig(JmsConfig jmsConfig) {
+        this.jmsConfig = jmsConfig;
     }
 }
