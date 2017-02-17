@@ -2,6 +2,7 @@ package com.ltsoft.jms;
 
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.type.IntegerType;
+import com.ltsoft.jms.util.ThreadPool;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -24,19 +25,21 @@ import static org.assertj.core.api.Fail.fail;
 /**
  * 消息提供者测试
  */
-public class JMSProducerImplTest {
+public class JmsProducerImplTest {
 
 
     private static JedisPool pool;
-    private static JMSContextImpl context;
+    private static JmsContextImpl context;
 
     private Queue queue = context.createQueue("queue");
 
     @BeforeClass
     public static void setupBeforeClass() {
         pool = new JedisPool("localhost", 6379);
+        JmsConfig jmsConfig = new JmsConfig();
+        ThreadPool threadPool = new ThreadPool(jmsConfig);
 
-        context = new JMSContextImpl("ClientID", pool, new JmsConfig(), JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JmsContextImpl("ClientID", pool, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass

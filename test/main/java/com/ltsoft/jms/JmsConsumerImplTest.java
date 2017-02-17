@@ -1,5 +1,6 @@
 package com.ltsoft.jms;
 
+import com.ltsoft.jms.util.ThreadPool;
 import org.junit.*;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
@@ -14,25 +15,26 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static com.ltsoft.jms.util.KeyHelper.*;
-import static com.ltsoft.jms.util.ThreadPool.cachedPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 /**
  * 消费者测试
  */
-public class JMSConsumerImplTest {
+public class JmsConsumerImplTest {
 
     private static JedisPool pool;
-    private static JMSContextImpl context;
+    private static JmsContextImpl context;
 
     private final long THREAD_WAIT = Duration.ofSeconds(5).toMillis();
 
     @BeforeClass
     public static void setupBeforeClass() throws Exception {
         pool = new JedisPool();
+        JmsConfig jmsConfig = new JmsConfig();
+        ThreadPool threadPool = new ThreadPool(jmsConfig);
 
-        context = new JMSContextImpl("ClientID", pool, new JmsConfig(), JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JmsContextImpl("ClientID", pool, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass
@@ -75,7 +77,7 @@ public class JMSConsumerImplTest {
         Queue queue = context.createQueue("receive-body");
 
         try (JMSConsumer consumer = context.createConsumer(queue)) {
-            Future<String> future = cachedPool().submit(() -> consumer.receiveBody(String.class));
+            Future<String> future = context.cachedPool().submit(() -> consumer.receiveBody(String.class));
 
             context.createProducer().send(queue, text);
 

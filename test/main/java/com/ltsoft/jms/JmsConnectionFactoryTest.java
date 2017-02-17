@@ -1,6 +1,7 @@
 package com.ltsoft.jms;
 
 import org.junit.Test;
+import redis.clients.jedis.JedisPool;
 
 import javax.jms.JMSContext;
 import javax.jms.JMSRuntimeException;
@@ -31,6 +32,10 @@ public class JmsConnectionFactoryTest {
     @Test
     public void createContext() throws Exception {
         JmsConnectionFactory factory = new JmsConnectionFactory();
+        factory.setClientId("Client");
+        factory.setJedisPool(new JedisPool());
+        factory.setJmsConfig(new JmsConfig());
+
         JMSContext context = factory.createContext();
 
         assertEquals(context.getSessionMode(), JMSContext.AUTO_ACKNOWLEDGE);

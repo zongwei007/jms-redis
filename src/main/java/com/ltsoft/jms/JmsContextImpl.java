@@ -5,6 +5,7 @@ import com.ltsoft.jms.destination.JmsTemporaryQueue;
 import com.ltsoft.jms.destination.JmsTemporaryTopic;
 import com.ltsoft.jms.destination.JmsTopic;
 import com.ltsoft.jms.message.JmsMessageFactory;
+import com.ltsoft.jms.util.ThreadPool;
 import redis.clients.jedis.JedisPool;
 
 import javax.jms.*;
@@ -12,12 +13,14 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * JMS 操作上下文
  */
-public class JMSContextImpl implements JMSContext {
+public class JmsContextImpl implements JMSContext {
 
     private final String clientId;
 
@@ -29,23 +32,26 @@ public class JMSContextImpl implements JMSContext {
 
     private final JmsMessageFactory messageFactory;
 
+    private final ThreadPool threadPool;
+
     private ExceptionListener exceptionListener;
 
     private boolean autoStart = true;
-    private List<JMSConsumerImpl> consumers = new ArrayList<>();
+    private List<JmsConsumerImpl> consumers = new ArrayList<>();
 
     private AtomicInteger messageCount = new AtomicInteger();
 
-    public JMSContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, int sessionMode) {
-        this(clientId, jedisPool, jmsConfig, sessionMode, new JmsMessageFactory());
+    public JmsContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, ThreadPool threadPool, int sessionMode) {
+        this(clientId, jedisPool, jmsConfig, threadPool, sessionMode, new JmsMessageFactory());
     }
 
-    private JMSContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, int sessionMode, JmsMessageFactory messageFactory) {
+    private JmsContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, ThreadPool threadPool, int sessionMode, JmsMessageFactory messageFactory) {
         this.clientId = clientId;
         this.jedisPool = jedisPool;
         this.jmsConfig = jmsConfig;
         this.sessionMode = sessionMode;
         this.messageFactory = messageFactory;
+        this.threadPool = threadPool;
     }
 
     public JedisPool pool() {
@@ -56,14 +62,22 @@ public class JMSContextImpl implements JMSContext {
         return jmsConfig;
     }
 
+    public ExecutorService cachedPool() {
+        return threadPool.cachedPool();
+    }
+
+    public ScheduledExecutorService scheduledPool() {
+        return threadPool.scheduledPool();
+    }
+
     @Override
     public JMSContext createContext(int sessionMode) {
-        return new JMSContextImpl(clientId, jedisPool, jmsConfig, sessionMode, messageFactory);
+        return new JmsContextImpl(clientId, jedisPool, jmsConfig, threadPool, sessionMode, messageFactory);
     }
 
     @Override
     public JMSProducer createProducer() {
-        return new JMSProducerImpl(this);
+        return new JmsProducerImpl(this);
     }
 
     @Override
@@ -93,12 +107,12 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public void start() {
-        consumers.forEach(JMSConsumerImpl::start);
+        consumers.forEach(JmsConsumerImpl::start);
     }
 
     @Override
     public void stop() {
-        consumers.forEach(JMSConsumerImpl::close);
+        consumers.forEach(JmsConsumerImpl::close);
     }
 
     @Override
@@ -208,7 +222,7 @@ public class JMSContextImpl implements JMSContext {
     }
 
     private JMSConsumer createNamedConsumer(Destination destination, String name, boolean noLocal, boolean durable, boolean shared) {
-        JMSConsumerImpl consumer = new JMSConsumerImpl(this, destination, noLocal, durable, shared);
+        JmsConsumerImpl consumer = new JmsConsumerImpl(this, destination, noLocal, durable, shared);
 
         if (name != null && consumers.stream().anyMatch(item -> Objects.equals(name, item.getSubscriptionName()))) {
             if (!shared) {
@@ -273,7 +287,7 @@ public class JMSContextImpl implements JMSContext {
 
     @Override
     public QueueBrowser createBrowser(Queue queue, String messageSelector) {
-        return new JMSQueueBrowserImpl(queue, this);
+        return new JmsQueueBrowserImpl(queue, this);
     }
 
     @Override
@@ -290,12 +304,12 @@ public class JMSContextImpl implements JMSContext {
     public void unsubscribe(String name) {
         consumers.stream()
                 .filter(consumer -> Objects.equals(name, consumer.getSubscriptionName()))
-                .peek(JMSConsumerImpl::close)
+                .peek(JmsConsumerImpl::close)
                 .forEach(consumer -> consumers.remove(consumer));
     }
 
     @Override
     public void acknowledge() {
-        consumers.forEach(JMSConsumerImpl::consumeAll);
+        consumers.forEach(JmsConsumerImpl::consumeAll);
     }
 }

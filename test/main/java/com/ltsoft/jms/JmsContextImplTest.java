@@ -9,7 +9,7 @@ import javax.jms.InvalidClientIDRuntimeException;
 /**
  * 消息上下文测试
  */
-public class JMSContextImplTest {
+public class JmsContextImplTest {
 
     @Before
     public void setUp() throws Exception {

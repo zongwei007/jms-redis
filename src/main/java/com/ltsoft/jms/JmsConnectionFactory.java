@@ -1,11 +1,13 @@
 package com.ltsoft.jms;
 
+import com.ltsoft.jms.util.ThreadPool;
 import redis.clients.jedis.JedisPool;
 
 import javax.jms.*;
 import java.text.MessageFormat;
 import java.util.Arrays;
 
+import static java.util.Objects.requireNonNull;
 import static javax.jms.JMSContext.*;
 
 /**
@@ -18,6 +20,8 @@ public class JmsConnectionFactory implements ConnectionFactory {
     private String clientId;
 
     private JmsConfig jmsConfig;
+
+    private ThreadPool threadPool;
 
     /**
      * 公共构造函数
@@ -70,7 +74,15 @@ public class JmsConnectionFactory implements ConnectionFactory {
             throw new JMSRuntimeException(MessageFormat.format("Unsupported sessionMode: {0}", sessionMode));
         }
 
-        return new JMSContextImpl(clientId, jedisPool, jmsConfig, sessionMode);
+        if (jmsConfig == null) {
+            this.jmsConfig = new JmsConfig();
+        }
+
+        if (threadPool == null) {
+            this.threadPool = new ThreadPool(jmsConfig);
+        }
+
+        return new JmsContextImpl(requireNonNull(clientId), requireNonNull(jedisPool), jmsConfig, threadPool, sessionMode);
     }
 
     @Override
@@ -81,6 +93,14 @@ public class JmsConnectionFactory implements ConnectionFactory {
     @Override
     public JMSContext createContext(String userName, String password, int sessionMode) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        if (threadPool != null) {
+            threadPool.shutdown();
+        }
+        super.finalize();
     }
 
     public void setJedisPool(JedisPool jedisPool) {

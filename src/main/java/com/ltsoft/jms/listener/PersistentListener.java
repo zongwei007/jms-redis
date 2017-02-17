@@ -1,13 +1,12 @@
 package com.ltsoft.jms.listener;
 
 
-import com.ltsoft.jms.JMSConsumerImpl;
+import com.ltsoft.jms.JmsConsumerImpl;
+import com.ltsoft.jms.JmsContextImpl;
 
 import javax.jms.Message;
 import javax.jms.MessageListener;
 import java.time.Duration;
-
-import static com.ltsoft.jms.util.ThreadPool.cachedPool;
 
 
 /**
@@ -17,18 +16,20 @@ public class PersistentListener implements Listener {
 
     private static final int DURATION = (int) Duration.ofMinutes(1).getSeconds();
 
-    private final JMSConsumerImpl consumer;
+    private final JmsContextImpl context;
+    private final JmsConsumerImpl consumer;
     private final MessageListener listener;
     private boolean listening = true;
 
-    public PersistentListener(JMSConsumerImpl consumer) {
+    public PersistentListener(JmsConsumerImpl consumer) {
+        this.context = consumer.context();
         this.consumer = consumer;
         this.listener = consumer.getMessageListener();
     }
 
     @Override
     public void start() {
-        cachedPool().execute(() -> {
+        context.cachedPool().execute(() -> {
             do {
                 Message message = consumer.receive(DURATION);
                 if (message != null) {

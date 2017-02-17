@@ -14,14 +14,13 @@ import java.util.Set;
 
 import static com.ltsoft.jms.message.JmsMessageHelper.*;
 import static com.ltsoft.jms.util.KeyHelper.*;
-import static com.ltsoft.jms.util.ThreadPool.cachedPool;
 
 /**
  * JMS 消息提供者
  */
-public class JMSProducerImpl implements JMSProducer {
+public class JmsProducerImpl implements JMSProducer {
 
-    private final JMSContextImpl context;
+    private final JmsContextImpl context;
 
     private boolean disableMessageTimestamp = false;
     private int deliveryMode = DeliveryMode.PERSISTENT;
@@ -33,11 +32,11 @@ public class JMSProducerImpl implements JMSProducer {
 
     private MessageProperty property = new MessageProperty();
 
-    public JMSProducerImpl(JMSContextImpl context) {
+    public JmsProducerImpl(JmsContextImpl context) {
         this.context = context;
     }
 
-    private JMSProducerImpl sendMessage(Destination destination, JmsMessage message) throws JMSException {
+    private JmsProducerImpl sendMessage(Destination destination, JmsMessage message) throws JMSException {
         try (Jedis client = context.pool().getResource()) {
             if (destination instanceof Topic) {
                 byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
@@ -120,7 +119,7 @@ public class JMSProducerImpl implements JMSProducer {
             item.mergeProperties(property);
 
             if (completionListener != null) {
-                cachedPool().execute(() -> {
+                context.cachedPool().execute(() -> {
                     try {
                         sendMessage(destination, item);
                         completionListener.onCompletion(message);

@@ -3,13 +3,15 @@ package com.ltsoft.jms.util;
 import javax.jms.Destination;
 
 /**
- * Created by zongw on 2016/10/3.
+ * Redis Key 构建工具
  */
 public class KeyHelper {
 
-    private static String DELIMITER = ":";
+    private static final String DELIMITER = ":";
 
-    private static String PREFIX = "MESSAGE";
+    private static final String PREFIX = "MESSAGE";
+
+    private static final String CONSUMERS = "CONSUMERS";
 
     /**
      * 消息目标地址
@@ -50,7 +52,7 @@ public class KeyHelper {
      * @return 消息目标消费者列表 Key
      */
     public static String getTopicConsumersKey(Destination destination) {
-        return String.join(DELIMITER, PREFIX, destination.toString(), "CONSUMERS");
+        return String.join(DELIMITER, PREFIX, destination.toString(), CONSUMERS);
     }
 
     /**
@@ -61,7 +63,7 @@ public class KeyHelper {
      * @return 消息实体消费者 Key
      */
     public static String getTopicItemConsumersKey(Destination destination, String messageId) {
-        return String.join(DELIMITER, PREFIX, destination.toString(), messageId, "CONSUMERS");
+        return String.join(DELIMITER, PREFIX, destination.toString(), messageId, CONSUMERS);
     }
 
     /**

@@ -17,11 +17,11 @@ import static com.ltsoft.jms.util.KeyHelper.*;
 /**
  * 队列浏览器
  */
-public class JMSQueueBrowserImpl implements QueueBrowser, AutoCloseable {
+public class JmsQueueBrowserImpl implements QueueBrowser, AutoCloseable {
     private final Queue queue;
     private final Jedis client;
 
-    JMSQueueBrowserImpl(Queue queue, JMSContextImpl context) {
+    JmsQueueBrowserImpl(Queue queue, JmsContextImpl context) {
         this.queue = queue;
         this.client = context.pool().getResource();
     }

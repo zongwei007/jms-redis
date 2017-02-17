@@ -1,7 +1,7 @@
 package com.ltsoft.jms.listener;
 
-import com.ltsoft.jms.JMSConsumerImpl;
-import com.ltsoft.jms.JMSContextImpl;
+import com.ltsoft.jms.JmsConsumerImpl;
+import com.ltsoft.jms.JmsContextImpl;
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.message.JmsMessageHelper;
 import redis.clients.jedis.BinaryJedisPubSub;
@@ -17,8 +17,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.ltsoft.jms.util.KeyHelper.getDestinationKey;
-import static com.ltsoft.jms.util.ThreadPool.cachedPool;
-import static com.ltsoft.jms.util.ThreadPool.scheduledPool;
 
 /**
  * 监听 Redis 的消息发布
@@ -27,14 +25,14 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
     private Logger logger = Logger.getLogger(getClass().getName());
 
-    private final JMSContextImpl context;
+    private final JmsContextImpl context;
     private final String clientID;
     private final MessageListener listener;
     private final Destination destination;
     private final boolean noLocal;
     private ScheduledFuture<?> pingSchedule;
 
-    public NoPersistentListener(JMSConsumerImpl consumer) {
+    public NoPersistentListener(JmsConsumerImpl consumer) {
         this.context = consumer.context();
         this.clientID = context.getClientID();
         this.listener = consumer.getMessageListener();
@@ -60,7 +58,7 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
     @Override
     public void start() {
-        cachedPool().execute(() -> {
+        context.cachedPool().execute(() -> {
             try (Jedis client = context.pool().getResource()) {
                 client.subscribe(this, getDestinationKey(destination).getBytes());
                 // subscribe/unsubscribe 会使 client 的 pipelinedCommands 计数器增长
@@ -73,7 +71,8 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
         long period = context.config().getListenerKeepLive().getSeconds();
         if (period != 0) {
-            this.pingSchedule = scheduledPool().scheduleAtFixedRate(this::ping, 0, period, TimeUnit.SECONDS);
+            this.pingSchedule = context.scheduledPool().scheduleAtFixedRate(
+                    this::ping, 0, period, TimeUnit.SECONDS);
         }
     }
 

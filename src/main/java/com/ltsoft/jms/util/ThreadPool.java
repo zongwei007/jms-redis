@@ -1,5 +1,7 @@
 package com.ltsoft.jms.util;
 
+import com.ltsoft.jms.JmsConfig;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -9,31 +11,30 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public final class ThreadPool {
 
-    private static final ExecutorService CACHED_POOL;
+    private final ExecutorService cachedPool;
 
-    private static final ScheduledExecutorService SCHEDULED_POOL;
+    private final ScheduledExecutorService scheduledPool;
 
-    static {
-        CACHED_POOL = Executors.newCachedThreadPool();
+    public ThreadPool(JmsConfig jmsConfig) {
+        if (jmsConfig.getCacheThread() > 0) {
+            this.cachedPool = Executors.newFixedThreadPool(jmsConfig.getCacheThread());
+        } else {
+            this.cachedPool = Executors.newCachedThreadPool();
+        }
 
-        int coreNum = Runtime.getRuntime().availableProcessors();
-        SCHEDULED_POOL = Executors.newScheduledThreadPool(Math.max(2, coreNum));
+        this.scheduledPool = Executors.newScheduledThreadPool(jmsConfig.getScheduledThread());
     }
 
-    private ThreadPool() {
-        //禁用构造函数
+    public ExecutorService cachedPool() {
+        return cachedPool;
     }
 
-    public static ExecutorService cachedPool() {
-        return CACHED_POOL;
+    public ScheduledExecutorService scheduledPool() {
+        return scheduledPool;
     }
 
-    public static ScheduledExecutorService scheduledPool() {
-        return SCHEDULED_POOL;
-    }
-
-    public static void shutdown() {
-        CACHED_POOL.shutdown();
+    public void shutdown() {
+        cachedPool.shutdown();
     }
 
 }

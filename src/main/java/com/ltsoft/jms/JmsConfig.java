@@ -7,13 +7,41 @@ import java.time.Duration;
  */
 public class JmsConfig {
 
-    private Duration backDuration = Duration.ofMinutes(10);
+    private int dupsCount = 10;
 
-    private int dupsCount;
+    private int cacheThread;
+
+    private int scheduledThread = Math.max(2, Runtime.getRuntime().availableProcessors());
+
+    private Duration backDuration = Duration.ofMinutes(10);
 
     private Duration consumerExpire = Duration.ofHours(1);
 
     private Duration listenerKeepLive = Duration.ofMinutes(5);
+
+    public int getDupsCount() {
+        return dupsCount;
+    }
+
+    public void setDupsCount(int dupsCount) {
+        this.dupsCount = Math.max(5, dupsCount);
+    }
+
+    public int getCacheThread() {
+        return cacheThread;
+    }
+
+    public void setCacheThread(int cacheThread) {
+        this.cacheThread = cacheThread;
+    }
+
+    public int getScheduledThread() {
+        return scheduledThread;
+    }
+
+    public void setScheduledThread(int scheduledThread) {
+        this.scheduledThread = Math.max(2, scheduledThread);
+    }
 
     public Duration getBackDuration() {
         return backDuration;
@@ -21,14 +49,6 @@ public class JmsConfig {
 
     public void setBackDuration(Duration backDuration) {
         this.backDuration = backDuration;
-    }
-
-    public int getDupsCount() {
-        return dupsCount;
-    }
-
-    public void setDupsCount(int dupsCount) {
-        this.dupsCount = dupsCount;
     }
 
     public Duration getConsumerExpire() {

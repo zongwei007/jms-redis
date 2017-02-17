@@ -16,10 +16,10 @@ import static com.ltsoft.jms.util.KeyHelper.*;
  */
 public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
 
-    private final JMSConsumerImpl consumer;
-    private final JMSContextImpl context;
+    private final JmsConsumerImpl consumer;
+    private final JmsContextImpl context;
 
-    public JmsAcknowledgeCallback(JMSConsumerImpl consumer) {
+    public JmsAcknowledgeCallback(JmsConsumerImpl consumer) {
         this.consumer = consumer;
         this.context = consumer.context();
     }

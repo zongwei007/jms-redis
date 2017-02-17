@@ -16,17 +16,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import static com.ltsoft.jms.util.KeyHelper.*;
-import static com.ltsoft.jms.util.ThreadPool.scheduledPool;
 
 /**
  * 消费者实现
  */
-public class JMSConsumerImpl implements JMSConsumer {
+public class JmsConsumerImpl implements JMSConsumer {
 
-    private final JMSContextImpl context;
+    private final JmsContextImpl context;
     private final Destination destination;
     private final boolean noLocal;
     private final boolean durable;
@@ -45,7 +43,7 @@ public class JMSConsumerImpl implements JMSConsumer {
 
     private Map<String, JmsMessage> consumingMessages = new ConcurrentHashMap<>();
 
-    public JMSConsumerImpl(JMSContextImpl context, Destination destination, boolean noLocal, boolean durable, boolean shared) {
+    public JmsConsumerImpl(JmsContextImpl context, Destination destination, boolean noLocal, boolean durable, boolean shared) {
         this.context = context;
         this.destination = destination;
         this.noLocal = noLocal;
@@ -61,7 +59,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         return noLocal;
     }
 
-    public JMSContextImpl context() {
+    public JmsContextImpl context() {
         return context;
     }
 
@@ -69,7 +67,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         return subscriptionName;
     }
 
-    JMSConsumerImpl setSubscriptionName(String subscriptionName) {
+    JmsConsumerImpl setSubscriptionName(String subscriptionName) {
         this.subscriptionName = subscriptionName;
         return this;
     }
@@ -146,18 +144,16 @@ public class JMSConsumerImpl implements JMSConsumer {
      * 按消息 ID 读取消息体
      *
      * @param messageId 消息 ID
-     * @param another   如消息无效，获取另一条消息的方式
      * @return JMS 消息
      */
-    private Message readMessage(String messageId, Supplier<Message> another) {
+    private Message readMessage(String messageId) {
 
         byte[] propsKey = getDestinationPropsKey(destination, messageId);
         try (Jedis client = context.pool().getResource()) {
             Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
             if (props == null) {
                 //消息有可能已过期
-                client.close();
-                return another.get();
+                return null;
             }
 
             JmsMessage message = JmsMessageHelper.fromMap(props);
@@ -169,9 +165,8 @@ public class JMSConsumerImpl implements JMSConsumer {
 
             if (noLocal && Objects.equals(message.getJMSXMessageFrom(), context.getClientID())) {
                 //仅处理非本机消息
-                client.close();
                 message.acknowledge();
-                return another.get();
+                return null;
             }
 
             byte[] body = client.get(getDestinationBodyKey(destination, messageId));
@@ -210,7 +205,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
         try (Jedis client = context.pool().getResource()) {
-            return readMessage(client.brpoplpush(key, backupKey, (int) timeout), () -> receive(timeout));
+            return readMessage(client.brpoplpush(key, backupKey, (int) timeout));
         }
     }
 
@@ -226,7 +221,7 @@ public class JMSConsumerImpl implements JMSConsumer {
         try (Jedis client = context.pool().getResource()) {
             String messageId = client.rpoplpush(key, backupKey);
             if (messageId != null) {
-                return readMessage(messageId, this::receiveNoWait);
+                return readMessage(messageId);
             }
         }
         return null;
@@ -247,19 +242,25 @@ public class JMSConsumerImpl implements JMSConsumer {
     private void cleanBackup() {
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
         try (Jedis client = context.pool().getResource()) {
-            String messageId = client.rpop(backupKey);
-            // TODO 再实现一层备份
-            if (!consumingMessages.containsKey(messageId)) {
-                boolean remoteExist = false;
-                if (destination instanceof Topic) {
-                    remoteExist = client.sismember(getTopicItemConsumersKey(destination, messageId), context.getClientID());
-                } else if (destination instanceof Queue) {
-                    remoteExist = client.exists(getDestinationPropsKey(destination, messageId));
+            do {
+                String messageId = client.lindex(backupKey, -1);
+                if (messageId != null && !consumingMessages.containsKey(messageId)) {
+                    boolean remoteExist = false;
+                    if (destination instanceof Topic) {
+                        remoteExist = client.sismember(getTopicItemConsumersKey(destination, messageId), context.getClientID());
+                    } else if (destination instanceof Queue) {
+                        remoteExist = client.exists(getDestinationPropsKey(destination, messageId));
+                    }
+                    if (remoteExist) {
+                        client.rpoplpush(backupKey, getMessageListKey());
+                    } else {
+                        client.rpop(backupKey);
+                    }
+                } else {
+                    // 备份队列为空或备份队列队尾元素正在消费中，可以认为备份队列中无历史记录
+                    break;
                 }
-                if (remoteExist) {
-                    client.lpush(getMessageListKey(), messageId);
-                }
-            }
+            } while (true);
         }
     }
 
@@ -270,10 +271,10 @@ public class JMSConsumerImpl implements JMSConsumer {
         if (durable) {
             JmsConfig config = context.config();
 
-            this.pingThread = scheduledPool().scheduleWithFixedDelay(
+            this.pingThread = context.scheduledPool().scheduleWithFixedDelay(
                     this::ping, 0, config.getConsumerExpire().getSeconds(), TimeUnit.SECONDS);
 
-            this.cleanThread = scheduledPool().scheduleWithFixedDelay(
+            this.cleanThread = context.scheduledPool().scheduleWithFixedDelay(
                     this::cleanBackup, 0, config.getBackDuration().getSeconds(), TimeUnit.SECONDS);
         }
     }
