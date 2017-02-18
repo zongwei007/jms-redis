@@ -53,6 +53,15 @@ public class JmsConnectionFactory implements ConnectionFactory {
         setJmsConfig(jmsConfig);
     }
 
+    private synchronized void initThreadPool() {
+        if (jmsConfig == null) {
+            this.jmsConfig = new JmsConfig();
+        }
+        if (threadPool == null) {
+            this.threadPool = new ThreadPool(jmsConfig);
+        }
+    }
+
     @Override
     public Connection createConnection() throws JMSException {
         throw new UnsupportedOperationException();
@@ -74,12 +83,8 @@ public class JmsConnectionFactory implements ConnectionFactory {
             throw new JMSRuntimeException(MessageFormat.format("Unsupported sessionMode: {0}", sessionMode));
         }
 
-        if (jmsConfig == null) {
-            this.jmsConfig = new JmsConfig();
-        }
-
         if (threadPool == null) {
-            this.threadPool = new ThreadPool(jmsConfig);
+            initThreadPool();
         }
 
         return new JmsContextImpl(requireNonNull(clientId), requireNonNull(jedisPool), jmsConfig, threadPool, sessionMode);
