@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 import static com.ltsoft.jms.util.KeyHelper.*;
 
@@ -23,6 +24,8 @@ import static com.ltsoft.jms.util.KeyHelper.*;
  * 消费者实现
  */
 public class JmsConsumerImpl implements JMSConsumer {
+
+    private static final Logger LOGGER = Logger.getLogger(JmsConsumerImpl.class.getName());
 
     private final JmsContextImpl context;
     private final Destination destination;
@@ -176,6 +179,11 @@ public class JmsConsumerImpl implements JMSConsumer {
 
             message.setReadOnly(true);
             consuming(message);
+
+            LOGGER.finest(() -> String.format(
+                    "Consumer of client '%s' receive a message: %s from '%s'",
+                    context.getClientID(), message, destination
+            ));
 
             if (JMSContext.AUTO_ACKNOWLEDGE == context.getSessionMode()
                     || DeliveryMode.NON_PERSISTENT == message.getJMSDeliveryMode()) {
@@ -337,5 +345,16 @@ public class JmsConsumerImpl implements JMSConsumer {
     @Override
     public <T> T receiveBodyNoWait(Class<T> c) {
         return receiveBody(c, receiveNoWait());
+    }
+
+    @Override
+    public String toString() {
+        return "JmsConsumerImpl{" +
+                "noLocal=" + noLocal +
+                ", durable=" + durable +
+                ", shared=" + shared +
+                ", subscriptionName='" + subscriptionName + '\'' +
+                ", destination='" + destination + '\'' +
+                '}';
     }
 }

@@ -331,4 +331,21 @@ public class JmsMessage implements Message {
             throw new MessageNotWriteableException("Message is read-only");
         }
     }
+
+    @Override
+    public String toString() {
+        return "JmsMessage{" +
+                "messageId='" + messageId + '\'' +
+                ", timestamp=" + timestamp +
+                ", correlationID='" + correlationID + '\'' +
+                ", replyTo=" + replyTo +
+                ", destination='" + destination + '\'' +
+                ", deliveryMode=" + deliveryMode +
+                ", expiration=" + expiration +
+                ", deliveryTime=" + deliveryTime +
+                ", priority=" + priority +
+                ", messageFrom='" + messageFrom + '\'' +
+                ", property=" + property +
+                '}';
+    }
 }

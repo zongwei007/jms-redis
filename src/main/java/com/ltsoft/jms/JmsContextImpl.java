@@ -16,11 +16,14 @@ import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
 /**
  * JMS 操作上下文
  */
 public class JmsContextImpl implements JMSContext {
+
+    private static final Logger LOGGER = Logger.getLogger(JmsContextImpl.class.getName());
 
     private final String clientId;
 
@@ -54,18 +57,30 @@ public class JmsContextImpl implements JMSContext {
         this.threadPool = threadPool;
     }
 
+    /**
+     * @return Jedis 连接池
+     */
     public JedisPool pool() {
         return jedisPool;
     }
 
+    /**
+     * @return JMS 配置
+     */
     public JmsConfig config() {
         return jmsConfig;
     }
 
+    /**
+     * @return 执行线程池
+     */
     public ExecutorService cachedPool() {
         return threadPool.cachedPool();
     }
 
+    /**
+     * @return 定时调度线程池
+     */
     public ScheduledExecutorService scheduledPool() {
         return threadPool.scheduledPool();
     }
@@ -247,6 +262,8 @@ public class JmsContextImpl implements JMSContext {
 
         consumers.add(consumer);
 
+        LOGGER.finest(() -> String.format("Client %s create %s", getClientID(), consumer.toString()));
+
         return consumer;
     }
 
@@ -302,6 +319,9 @@ public class JmsContextImpl implements JMSContext {
 
     @Override
     public void unsubscribe(String name) {
+
+        LOGGER.finest(() -> String.format("Client %s unsubscribe named '%s' consumers", getClientID(), name));
+
         consumers.stream()
                 .filter(consumer -> Objects.equals(name, consumer.getSubscriptionName()))
                 .peek(JmsConsumerImpl::close)

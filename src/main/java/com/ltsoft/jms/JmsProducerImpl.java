@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import static com.ltsoft.jms.message.JmsMessageHelper.*;
 import static com.ltsoft.jms.util.KeyHelper.*;
@@ -19,6 +20,8 @@ import static com.ltsoft.jms.util.KeyHelper.*;
  * JMS 消息提供者
  */
 public class JmsProducerImpl implements JMSProducer {
+
+    private static final Logger LOGGER = Logger.getLogger(JmsProducerImpl.class.getName());
 
     private final JmsContextImpl context;
 
@@ -93,21 +96,26 @@ public class JmsProducerImpl implements JMSProducer {
             }
         }
 
+        LOGGER.finest(() -> String.format(
+                "Client '%s' send %s: %s, timeToLive: %s",
+                context.getClientID(), message.getClass().getSimpleName(), message, timeToLive
+        ));
+
         return this;
     }
 
     @Override
     public JMSProducer send(Destination destination, Message message) {
-
         try {
+            long timestamp = System.currentTimeMillis();
             if (!disableMessageTimestamp) {
-                message.setJMSTimestamp(System.currentTimeMillis());
+                message.setJMSTimestamp(timestamp);
             }
             message.setJMSMessageID(getMessageId());
             message.setJMSDestination(destination);
             message.setJMSDeliveryMode(deliveryMode);
             if (timeToLive > 0) {
-                message.setJMSExpiration(System.currentTimeMillis() + timeToLive);
+                message.setJMSExpiration(timestamp + timeToLive);
             }
             message.setJMSPriority(priority);
             message.setJMSReplyTo(replyTo);

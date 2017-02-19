@@ -6,6 +6,7 @@ import redis.clients.jedis.JedisPool;
 import javax.jms.*;
 import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 import static java.util.Objects.requireNonNull;
 import static javax.jms.JMSContext.*;
@@ -14,6 +15,8 @@ import static javax.jms.JMSContext.*;
  * JMS 连接工厂的实现
  */
 public class JmsConnectionFactory implements ConnectionFactory {
+
+    private static final Logger LOGGER = Logger.getLogger(JmsConnectionFactory.class.getName());
 
     private JedisPool jedisPool;
 
@@ -87,6 +90,8 @@ public class JmsConnectionFactory implements ConnectionFactory {
             initThreadPool();
         }
 
+        LOGGER.finest(() -> String.format("Create JmsConnectionFactory with clientId: %s, sessionMode: %s", clientId, sessionMode));
+
         return new JmsContextImpl(requireNonNull(clientId), requireNonNull(jedisPool), jmsConfig, threadPool, sessionMode);
     }
 
@@ -100,14 +105,6 @@ public class JmsConnectionFactory implements ConnectionFactory {
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    protected void finalize() throws Throwable {
-        if (threadPool != null) {
-            threadPool.shutdown();
-        }
-        super.finalize();
-    }
-
     public void setJedisPool(JedisPool jedisPool) {
         this.jedisPool = jedisPool;
     }
@@ -118,5 +115,11 @@ public class JmsConnectionFactory implements ConnectionFactory {
 
     public void setJmsConfig(JmsConfig jmsConfig) {
         this.jmsConfig = jmsConfig;
+    }
+
+    public void close() {
+        if (threadPool != null) {
+            threadPool.shutdown();
+        }
     }
 }

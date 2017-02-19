@@ -103,4 +103,9 @@ public class MessageProperty {
     public void mergeProperty(MessageProperty props) {
         properties.putAll(props.properties);
     }
+
+    @Override
+    public String toString() {
+        return properties.toString();
+    }
 }

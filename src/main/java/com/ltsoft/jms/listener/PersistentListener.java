@@ -7,12 +7,15 @@ import com.ltsoft.jms.JmsContextImpl;
 import javax.jms.Message;
 import javax.jms.MessageListener;
 import java.time.Duration;
+import java.util.logging.Logger;
 
 
 /**
  * 阻塞式从队列获取消息，实现监听功能
  */
 public class PersistentListener implements Listener {
+
+    private static final Logger LOGGER = Logger.getLogger(PersistentListener.class.getName());
 
     private static final int DURATION = (int) Duration.ofMinutes(1).getSeconds();
 
@@ -29,6 +32,8 @@ public class PersistentListener implements Listener {
 
     @Override
     public void start() {
+        LOGGER.finest(() -> String.format("Client '%s' start listening to '%s'", context.getClientID(), consumer.getDestination()));
+
         context.cachedPool().execute(() -> {
             do {
                 Message message = consumer.receive(DURATION);
@@ -36,11 +41,15 @@ public class PersistentListener implements Listener {
                     listener.onMessage(message);
                 }
             } while (listening);
+
+            LOGGER.finest(() -> String.format("Client '%s' listener of '%s' is exist", context.getClientID(), consumer.getDestination()));
         });
     }
 
     @Override
     public void stop() {
         this.listening = false;
+
+        LOGGER.finest(() -> String.format("Client '%s' stop listening to '%s'", context.getClientID(), consumer.getDestination()));
     }
 }

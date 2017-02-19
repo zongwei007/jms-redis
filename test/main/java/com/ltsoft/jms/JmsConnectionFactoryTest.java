@@ -1,10 +1,13 @@
 package com.ltsoft.jms;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 import redis.clients.jedis.JedisPool;
 
 import javax.jms.JMSContext;
 import javax.jms.JMSRuntimeException;
+import java.io.InputStream;
+import java.util.logging.LogManager;
 
 import static org.junit.Assert.assertEquals;
 
@@ -16,6 +19,12 @@ public class JmsConnectionFactoryTest {
 
     private static final String USER = "USER";
     private static final String PASSWORD = "PASSWORD";
+
+    @BeforeClass
+    public static void beforeClass() throws Exception {
+        InputStream is = JmsConnectionFactoryTest.class.getResourceAsStream("/logging.properties");
+        LogManager.getLogManager().readConfiguration(is);
+    }
 
     @Test(expected = UnsupportedOperationException.class)
     public void createConnection() throws Exception {

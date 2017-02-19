@@ -23,7 +23,7 @@ import static com.ltsoft.jms.util.KeyHelper.getDestinationKey;
  */
 public class NoPersistentListener extends BinaryJedisPubSub implements Listener {
 
-    private Logger logger = Logger.getLogger(getClass().getName());
+    private static final Logger LOGGER = Logger.getLogger(NoPersistentListener.class.getName());
 
     private final JmsContextImpl context;
     private final String clientID;
@@ -52,12 +52,14 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
             listener.onMessage(message);
         } catch (JMSException e) {
-            logger.log(Level.WARNING, "NoPersistentListener can not read message from property", e);
+            LOGGER.log(Level.WARNING, "NoPersistentListener can not read message from property", e);
         }
     }
 
     @Override
     public void start() {
+        LOGGER.finest(() -> String.format("Client '%s' start listening to '%s'", clientID, destination));
+
         context.cachedPool().execute(() -> {
             try (Jedis client = context.pool().getResource()) {
                 client.subscribe(this, getDestinationKey(destination).getBytes());
@@ -67,6 +69,8 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
                 // 另外，JedisPubSub 中还添加了 ping 的支持；同样的，BinaryJedisPubSub 中也没有……
                 // 解决方法是：使用定制版本的 Jedis :(
             }
+
+            LOGGER.finest(() -> String.format("Client '%s' listener of '%s' is exist", clientID, destination));
         });
 
         long period = context.config().getListenerKeepLive().getSeconds();
@@ -83,5 +87,7 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
         if (pingSchedule != null) {
             pingSchedule.cancel(false);
         }
+
+        LOGGER.finest(() -> String.format("Client '%s' stop listening to '%s'", clientID, destination));
     }
 }
