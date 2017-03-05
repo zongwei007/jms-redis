@@ -33,8 +33,6 @@ public class PersistentListener implements Listener {
 
     @Override
     public void start() {
-        LOGGER.finest(() -> String.format("Client '%s' start listening to '%s'", context.getClientID(), consumer.getDestination()));
-
         context.cachedPool().execute(() -> {
             do {
                 Message message = null;
@@ -51,6 +49,8 @@ public class PersistentListener implements Listener {
 
             LOGGER.finest(() -> String.format("Client '%s' listener of '%s' is exist", context.getClientID(), consumer.getDestination()));
         });
+
+        LOGGER.finest(() -> String.format("Client '%s' is listening to '%s'", context.getClientID(), consumer.getDestination()));
     }
 
     @Override

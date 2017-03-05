@@ -61,8 +61,6 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
     @Override
     public void start() {
-        LOGGER.finest(() -> String.format("Client '%s' start listening to '%s'", clientID, destination));
-
         context.cachedPool().execute(() -> {
             try (Jedis client = context.pool().getResource()) {
                 client.subscribe(this, getDestinationKey(destination).getBytes());
@@ -81,6 +79,8 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
             this.pingSchedule = context.scheduledPool().scheduleAtFixedRate(
                     this::ping, 0, period, TimeUnit.SECONDS);
         }
+
+        LOGGER.finest(() -> String.format("Client '%s' is listening to '%s'", clientID, destination));
     }
 
     @Override
