@@ -150,11 +150,14 @@ public class JmsConsumerImpl implements JMSConsumer {
      * @return JMS 消息
      */
     private Message readMessage(String messageId) {
+        if (Objects.isNull(messageId)) {
+            return null;
+        }
 
         byte[] propsKey = getDestinationPropsKey(destination, messageId);
         try (Jedis client = context.pool().getResource()) {
             Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
-            if (props == null) {
+            if (props.size() == 0) {
                 //消息有可能已过期
                 return null;
             }
@@ -227,12 +230,8 @@ public class JmsConsumerImpl implements JMSConsumer {
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
         try (Jedis client = context.pool().getResource()) {
-            String messageId = client.rpoplpush(key, backupKey);
-            if (messageId != null) {
-                return readMessage(messageId);
-            }
+            return readMessage(client.rpoplpush(key, backupKey));
         }
-        return null;
     }
 
     /**

@@ -90,7 +90,7 @@ public class JmsConnectionFactory implements ConnectionFactory {
             initThreadPool();
         }
 
-        LOGGER.finest(() -> String.format("Create JmsConnectionFactory with clientId: %s, sessionMode: %s", clientId, sessionMode));
+        LOGGER.finest(() -> String.format("Create JMSContext with clientId: %s, sessionMode: %s", clientId, sessionMode));
 
         return new JmsContextImpl(requireNonNull(clientId), requireNonNull(jedisPool), jmsConfig, threadPool, sessionMode);
     }

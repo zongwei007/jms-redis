@@ -10,8 +10,8 @@ public class KeyHelper {
     private static final String DELIMITER = ":";
 
     private static final String PREFIX = "MESSAGE";
-
     private static final String CONSUMERS = "CONSUMERS";
+    private static final String ID_BACKUP = "MSG_ID_BACKUP";
 
     /**
      * 消息目标地址
@@ -85,6 +85,6 @@ public class KeyHelper {
      * @return 消息 ID 备份地址
      */
     public static String getDestinationBackupKey(Destination destination, String clientId) {
-        return String.join(DELIMITER, PREFIX, "MSG_ID_BACKUP", clientId, destination.toString());
+        return String.join(DELIMITER, PREFIX, destination.toString(), ID_BACKUP, clientId);
     }
 }

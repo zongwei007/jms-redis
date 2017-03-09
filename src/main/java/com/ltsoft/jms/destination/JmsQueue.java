@@ -8,6 +8,8 @@ import javax.jms.Queue;
  */
 public class JmsQueue extends JmsDestination implements Queue {
 
+    static final String QUEUE = "QUEUE";
+
     private String queueName;
 
     public JmsQueue(String queueName) {
@@ -21,7 +23,7 @@ public class JmsQueue extends JmsDestination implements Queue {
 
     @Override
     public String toString() {
-        return "QUEUE:" + queueName;
+        return QUEUE + ":" + queueName;
     }
 
     @Override

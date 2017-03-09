@@ -60,7 +60,7 @@ public class JmsMessage implements Message {
 
     @Override
     public byte[] getJMSCorrelationIDAsBytes() throws JMSException {
-        return Optional.ofNullable(getJMSCorrelationID()).map(String::getBytes).orElse(null);
+        return Optional.ofNullable(getJMSCorrelationID()).map(String::getBytes).orElse(new byte[0]);
     }
 
     @Override

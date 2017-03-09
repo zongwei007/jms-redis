@@ -42,17 +42,20 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
     @Override
     public void onMessage(byte[] channel, byte[] bytes) {
+        JmsMessage message = null;
         try {
-            JmsMessage message = JmsMessageHelper.fromBytes(bytes);
+            message = JmsMessageHelper.fromBytes(bytes);
             if (noLocal && Objects.equals(message.getJMSXMessageFrom(), clientID)) {
                 return;
             }
+        } catch (JMSException e) {
+            LOGGER.log(Level.WARNING, "NoPersistentListener can not read message from property", e);
+        }
 
+        if (message != null) {
             message.setReadOnly(true);
 
             listener.onMessage(message);
-        } catch (JMSException e) {
-            LOGGER.log(Level.WARNING, "NoPersistentListener can not read message from property", e);
         }
     }
 

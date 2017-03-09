@@ -69,7 +69,7 @@ public class JmsQueueBrowserImpl implements QueueBrowser, AutoCloseable {
             byte[] propsKey = getDestinationPropsKey(queue, messageId);
             try {
                 Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
-                if (props == null) {
+                if (props.size() == 0) {
                     //消息有可能已过期
                     return null;
                 }

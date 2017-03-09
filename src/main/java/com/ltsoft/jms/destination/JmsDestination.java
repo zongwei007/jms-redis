@@ -2,20 +2,26 @@ package com.ltsoft.jms.destination;
 
 import javax.jms.Destination;
 
+import static com.ltsoft.jms.destination.JmsQueue.QUEUE;
+import static com.ltsoft.jms.destination.JmsTopic.TOPIC;
+
 /**
- * Created by zongw on 2016/9/26.
+ * JMS 消息地址
  */
 public abstract class JmsDestination implements Destination {
 
     public static JmsDestination valueOf(String value) {
-        String[] str = value.split(":");
+        int pos = value.indexOf(':');
+        String type = value.substring(0, pos);
+        String name = value.substring(pos + 1);
+
         JmsDestination destination = null;
-        switch (str[0]) {
-            case "QUEUE":
-                destination = new JmsQueue(str[1]);
+        switch (type) {
+            case QUEUE:
+                destination = new JmsQueue(name);
                 break;
-            case "TOPIC":
-                destination = new JmsTopic(str[1]);
+            case TOPIC:
+                destination = new JmsTopic(name);
                 break;
         }
         return destination;

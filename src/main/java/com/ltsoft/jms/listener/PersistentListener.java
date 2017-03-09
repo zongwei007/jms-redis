@@ -7,6 +7,7 @@ import com.ltsoft.jms.JmsContextImpl;
 import javax.jms.Message;
 import javax.jms.MessageListener;
 import java.time.Duration;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
@@ -36,7 +37,13 @@ public class PersistentListener implements Listener {
 
         context.cachedPool().execute(() -> {
             do {
-                Message message = consumer.receive(DURATION);
+                Message message = null;
+                try {
+                    message = consumer.receive(DURATION);
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "PersistentListener can not read message from property", e);
+                }
+
                 if (message != null) {
                     listener.onMessage(message);
                 }

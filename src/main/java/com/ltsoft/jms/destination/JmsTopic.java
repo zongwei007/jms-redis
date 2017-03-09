@@ -8,6 +8,8 @@ import javax.jms.Topic;
  */
 public class JmsTopic extends JmsDestination implements Topic {
 
+    static final String TOPIC = "TOPIC";
+
     private String topicName;
 
     public JmsTopic(String topicName) {
@@ -21,7 +23,7 @@ public class JmsTopic extends JmsDestination implements Topic {
 
     @Override
     public String toString() {
-        return "TOPIC:" + topicName;
+        return TOPIC + ":" + topicName;
     }
 
     @Override
