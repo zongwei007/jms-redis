@@ -44,7 +44,7 @@ public class JmsConsumerImpl implements JMSConsumer {
     private ScheduledFuture<?> pingThread;
     private ScheduledFuture<?> cleanThread;
 
-    private Map<String, JmsMessage> consumingMessages = new ConcurrentHashMap<>();
+    private Map<String, ConsumingMessage> consumingMessages = new ConcurrentHashMap<>();
 
     public JmsConsumerImpl(JmsContextImpl context, Destination destination, boolean noLocal, boolean durable, boolean shared) {
         this.context = context;
@@ -80,8 +80,12 @@ public class JmsConsumerImpl implements JMSConsumer {
     }
 
     private void consuming(JmsMessage message) {
+        JmsConfig config = context.config();
+
         try {
-            consumingMessages.put(message.getJMSMessageID(), message);
+            Instant expireAt = Instant.now().plus(config.getConsumingTimeout());
+
+            consumingMessages.put(message.getJMSMessageID(), new ConsumingMessage(message, expireAt));
             if (onReceive != null) {
                 onReceive.accept(message);
             }
@@ -92,7 +96,9 @@ public class JmsConsumerImpl implements JMSConsumer {
 
     void consume(JmsMessage message) {
         try {
-            consumingMessages.remove(message.getJMSMessageID());
+            if (message != null) {
+                consumingMessages.remove(message.getJMSMessageID());
+            }
         } catch (JMSException e) {
             throw JMSExceptionSupport.wrap(e);
         }
@@ -249,19 +255,28 @@ public class JmsConsumerImpl implements JMSConsumer {
     private void cleanBackup() {
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
         try (Jedis client = context.pool().getResource()) {
+            Instant now = Instant.now();
             do {
                 String messageId = client.lindex(backupKey, -1);
-                if (messageId != null && !consumingMessages.containsKey(messageId)) {
-                    boolean remoteExist = false;
-                    if (destination instanceof Topic) {
-                        remoteExist = client.sismember(getTopicItemConsumersKey(destination, messageId), context.getClientID());
-                    } else if (destination instanceof Queue) {
-                        remoteExist = client.exists(getDestinationPropsKey(destination, messageId));
-                    }
-                    if (remoteExist) {
-                        client.rpoplpush(backupKey, getMessageListKey());
-                    } else {
-                        client.rpop(backupKey);
+                if (messageId != null) {
+                    ConsumingMessage consumingMessage = consumingMessages.get(messageId);
+                    if (Objects.isNull(consumingMessage) || now.isAfter(consumingMessage.getTimeoutAt())) {
+
+                        boolean remoteExist = false;
+                        if (destination instanceof Topic) {
+                            remoteExist = client.sismember(getTopicItemConsumersKey(destination, messageId), context.getClientID());
+                        } else if (destination instanceof Queue) {
+                            remoteExist = client.exists(getDestinationPropsKey(destination, messageId));
+                        }
+                        if (remoteExist) {
+                            client.rpoplpush(backupKey, getMessageListKey());
+                        } else {
+                            client.rpop(backupKey);
+                        }
+
+                        if (Objects.nonNull(consumingMessage)) {
+                            consumingMessages.remove(messageId);
+                        }
                     }
                 } else {
                     // 备份队列为空或备份队列队尾元素正在消费中，可以认为备份队列中无历史记录

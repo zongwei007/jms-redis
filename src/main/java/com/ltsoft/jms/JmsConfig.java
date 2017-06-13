@@ -15,6 +15,8 @@ public class JmsConfig {
 
     private Duration backDuration = Duration.ofMinutes(10);
 
+    private Duration consumingTimeout = Duration.ofMinutes(10);
+
     private Duration consumerExpire = Duration.ofHours(1);
 
     private Duration listenerKeepLive = Duration.ofMinutes(5);
@@ -49,6 +51,14 @@ public class JmsConfig {
 
     public void setBackDuration(Duration backDuration) {
         this.backDuration = backDuration;
+    }
+
+    public Duration getConsumingTimeout() {
+        return consumingTimeout;
+    }
+
+    public void setConsumingTimeout(Duration consumingTimeout) {
+        this.consumingTimeout = consumingTimeout;
     }
 
     public Duration getConsumerExpire() {
