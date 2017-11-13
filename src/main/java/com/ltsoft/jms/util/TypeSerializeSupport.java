@@ -1,13 +1,14 @@
 package com.ltsoft.jms.util;
 
 import com.ltsoft.jms.destination.*;
-import org.nustaq.serialization.FSTConfiguration;
 
 import javax.jms.Destination;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.ServiceLoader;
 import java.util.function.Function;
 
 /**
@@ -27,12 +28,21 @@ public final class TypeSerializeSupport {
     //JMS 序列化转换
     private static final HashMap<ConversionKey, Function<?, ?>> CONVERSION_MAP = new HashMap<>();
 
-    private static FSTConfiguration FST_CONFIG = FSTConfiguration.createDefaultConfiguration();
+    private static Serializer serializer;
 
-    private static Function<Object, byte[]> serializeConversion = (Object value) -> FST_CONFIG.asByteArray(value);
-    private static Function<byte[], Object> deserializeConversion = (byte[] value) -> FST_CONFIG.asObject(value);
+    private static Function<Object, byte[]> serializeConversion = (Object value) -> serializer.serialize(value);
+    private static Function<byte[], Object> deserializeConversion = (byte[] value) -> serializer.deserialize(value);
 
     static {
+        //加载序列化工具
+        ServiceLoader<Serializer> serviceLoader = ServiceLoader.load(Serializer.class);
+        Iterator<Serializer> serviceIterator = serviceLoader.iterator();
+        if (serviceIterator.hasNext()) {
+            serializer = serviceIterator.next();
+        } else {
+            serializer = new DefaultSerializer();
+        }
+
         //序列化
         CONVERSION_MAP.put(new ConversionKey(Boolean.class, byte[].class), (Boolean value) -> value ? TRUE : FALSE);
         CONVERSION_MAP.put(new ConversionKey(Byte.class, byte[].class), (Byte value) -> new byte[]{value});

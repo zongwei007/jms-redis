@@ -48,6 +48,10 @@ public class Example {
 }
 ```
 
+## 关于序列化
+
+默认使用 Java 自带的序列化工具实现序列化支持，并允许使用 Java 的 SPI 机制进行扩展。如果需要替换默认实现，通过 SPI 扩展 `com.ltsoft.jms.util.Serializer` 接口即可。
+
 ## 关于编译
 
-项目依赖的是个人修改过的 Jedis（修正了一处 BUG），见：[zongwei007/jedis](https://github.com/zongwei007/jedis/tree/2.10)
+项目依赖的是个人修改过的 Jedis（补充了 `BinaryJedisPubSub` 的 `ping` 功能），见：[zongwei007/jedis](https://github.com/zongwei007/jedis)

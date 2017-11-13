@@ -9,10 +9,9 @@
     <version>0.2-SNAPSHOT</version>
 
     <properties>
-        <jedis.version>2.10.1</jedis.version>
+        <jedis.version>3.0.0-SNAPSHOT</jedis.version>
         <mockito.version>2.2.6</mockito.version>
         <assertj.version>3.5.2</assertj.version>
-        <fst.version>2.48</fst.version>
     </properties>
 
     <dependencies>
@@ -20,11 +19,6 @@
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
             <version>${jedis.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>de.ruedigermoeller</groupId>
-            <artifactId>fst</artifactId>
-            <version>${fst.version}</version>
         </dependency>
         <dependency>
             <groupId>javax.jms</groupId>
