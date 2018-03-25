@@ -5,8 +5,12 @@ import com.ltsoft.jms.listener.Listener;
 import com.ltsoft.jms.listener.NoPersistentListener;
 import com.ltsoft.jms.listener.PersistentListener;
 import com.ltsoft.jms.message.JmsMessage;
-import com.ltsoft.jms.message.JmsMessageHelper;
-import redis.clients.jedis.Jedis;
+import org.redisson.api.RBlockingDeque;
+import org.redisson.api.RDeque;
+import org.redisson.api.RScoredSortedSet;
+import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.ByteArrayCodec;
+import org.redisson.client.codec.StringCodec;
 
 import javax.jms.*;
 import java.time.Instant;
@@ -18,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
+import static com.ltsoft.jms.message.JmsMessageHelper.fromMap;
+import static com.ltsoft.jms.message.JmsMessageHelper.toStringKey;
 import static com.ltsoft.jms.util.KeyHelper.*;
 
 /**
@@ -160,15 +166,17 @@ public class JmsConsumerImpl implements JMSConsumer {
             return null;
         }
 
-        byte[] propsKey = getDestinationPropsKey(destination, messageId);
-        try (Jedis client = context.pool().getResource()) {
-            Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
+        RedissonClient client = context.client();
+        String propsKey = getDestinationPropsKey(destination, messageId);
+
+        try {
+            Map<String, byte[]> props = toStringKey(client.<byte[], byte[]>getMap(propsKey, ByteArrayCodec.INSTANCE).readAllMap());
             if (props.size() == 0) {
                 //消息有可能已过期
                 return null;
             }
 
-            JmsMessage message = JmsMessageHelper.fromMap(props);
+            JmsMessage message = fromMap(props);
             message.setJMSMessageID(messageId);
 
             if (durable) {
@@ -181,7 +189,7 @@ public class JmsConsumerImpl implements JMSConsumer {
                 return null;
             }
 
-            byte[] body = client.get(getDestinationBodyKey(destination, messageId));
+            byte[] body = client.<byte[]>getBucket(getDestinationBodyKey(destination, messageId), ByteArrayCodec.INSTANCE).get();
             if (body != null) {
                 message.setBody(body);
             }
@@ -221,8 +229,11 @@ public class JmsConsumerImpl implements JMSConsumer {
         String key = getMessageListKey();
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
-        try (Jedis client = context.pool().getResource()) {
-            return readMessage(client.brpoplpush(key, backupKey, (int) timeout));
+        try {
+            RBlockingDeque<String> blockingDeque = context.client().getBlockingDeque(key, StringCodec.INSTANCE);
+            return readMessage(blockingDeque.pollLastAndOfferFirstTo(backupKey, timeout, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            throw new RuntimeException("", e);//TODO
         }
     }
 
@@ -235,55 +246,53 @@ public class JmsConsumerImpl implements JMSConsumer {
         String key = getMessageListKey();
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
 
-        try (Jedis client = context.pool().getResource()) {
-            return readMessage(client.rpoplpush(key, backupKey));
-        }
+        RDeque<String> deque = context.client().getDeque(key, StringCodec.INSTANCE);
+        return readMessage(deque.pollLastAndOfferFirstTo(backupKey));
     }
 
     /**
      * 更新 Redis 中的消费者过期时间
      */
     private void ping() {
-        try (Jedis client = context.pool().getResource()) {
-            client.zadd(getTopicConsumersKey(destination), Instant.now().getEpochSecond(), context.getClientID());
-        }
+        RScoredSortedSet<String> scoredSortedSet = context.client().getScoredSortedSet(getTopicConsumersKey(destination), StringCodec.INSTANCE);
+        scoredSortedSet.add(Instant.now().getEpochSecond(), context.getClientID());
     }
 
     /**
      * 清理 Redis 中的已消费消息备份队列
      */
     private void cleanBackup() {
+        RedissonClient client = context.client();
         String backupKey = getDestinationBackupKey(destination, context.getClientID());
-        try (Jedis client = context.pool().getResource()) {
-            Instant now = Instant.now();
-            do {
-                String messageId = client.lindex(backupKey, -1);
-                if (messageId != null) {
-                    ConsumingMessage consumingMessage = consumingMessages.get(messageId);
-                    if (Objects.isNull(consumingMessage) || now.isAfter(consumingMessage.getTimeoutAt())) {
+        Instant now = Instant.now();
+        do {
+            @SuppressWarnings("ConstantConditions")
+            String messageId = client.<String>getList(backupKey, StringCodec.INSTANCE).get(-1);
+            if (messageId != null) {
+                ConsumingMessage consumingMessage = consumingMessages.get(messageId);
+                if (Objects.isNull(consumingMessage) || now.isAfter(consumingMessage.getTimeoutAt())) {
 
-                        boolean remoteExist = false;
-                        if (destination instanceof Topic) {
-                            remoteExist = client.sismember(getTopicItemConsumersKey(destination, messageId), context.getClientID());
-                        } else if (destination instanceof Queue) {
-                            remoteExist = client.exists(getDestinationPropsKey(destination, messageId));
-                        }
-                        if (remoteExist) {
-                            client.rpoplpush(backupKey, getMessageListKey());
-                        } else {
-                            client.rpop(backupKey);
-                        }
-
-                        if (Objects.nonNull(consumingMessage)) {
-                            consumingMessages.remove(messageId);
-                        }
+                    boolean remoteExist = false;
+                    if (destination instanceof Topic) {
+                        remoteExist = client.getSet(getTopicItemConsumersKey(destination, messageId), StringCodec.INSTANCE).contains(context.getClientID());
+                    } else if (destination instanceof Queue) {
+                        remoteExist = client.getKeys().countExists(getDestinationPropsKey(destination, messageId)) > 0;
                     }
-                } else {
-                    // 备份队列为空或备份队列队尾元素正在消费中，可以认为备份队列中无历史记录
-                    break;
+                    if (remoteExist) {
+                        client.getDeque(backupKey, StringCodec.INSTANCE).pollLastAndOfferFirstTo(getMessageListKey());
+                    } else {
+                        client.getDeque(backupKey, StringCodec.INSTANCE).pollLast();
+                    }
+
+                    if (Objects.nonNull(consumingMessage)) {
+                        consumingMessages.remove(messageId);
+                    }
                 }
-            } while (true);
-        }
+            } else {
+                // 备份队列为空或备份队列队尾元素正在消费中，可以认为备份队列中无历史记录
+                break;
+            }
+        } while (true);
     }
 
     /**
@@ -305,12 +314,11 @@ public class JmsConsumerImpl implements JMSConsumer {
      * 从 Redis 中注销消费者
      */
     private void unregistered() {
-        try (Jedis client = context.pool().getResource()) {
-            if (pingThread != null) {
-                client.zrem(getTopicConsumersKey(destination), context.getClientID());
-                pingThread.cancel(false);
-                cleanThread.cancel(false);
-            }
+        RedissonClient client = context.client();
+        if (pingThread != null) {
+            client.getScoredSortedSet(getTopicConsumersKey(destination), StringCodec.INSTANCE).remove(context.getClientID());
+            pingThread.cancel(false);
+            cleanThread.cancel(false);
         }
     }
 

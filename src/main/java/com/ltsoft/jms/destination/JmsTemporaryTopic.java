@@ -1,6 +1,6 @@
 package com.ltsoft.jms.destination;
 
-import redis.clients.jedis.JedisPool;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.JMSException;
 import javax.jms.TemporaryTopic;
@@ -10,11 +10,11 @@ import javax.jms.TemporaryTopic;
  */
 public class JmsTemporaryTopic extends JmsTopic implements TemporaryTopic {
 
-    private final JedisPool jedisPool;
+    private final RedissonClient client;
 
-    public JmsTemporaryTopic(JedisPool jedisPool) {
+    public JmsTemporaryTopic(RedissonClient client) {
         super("TEMPORARY_TOPIC:" + Math.round(Math.random() * 100000000));
-        this.jedisPool = jedisPool;
+        this.client = client;
     }
 
     @Override

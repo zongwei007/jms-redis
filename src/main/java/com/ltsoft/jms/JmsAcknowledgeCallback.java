@@ -2,8 +2,8 @@ package com.ltsoft.jms;
 
 import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.message.JmsMessage;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Pipeline;
+import org.redisson.api.RBatch;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.JMSException;
 import javax.jms.Topic;
@@ -29,16 +29,19 @@ public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
 
     @Override
     public void accept(JmsMessage message) {
-        try (Jedis client = context.pool().getResource()) {
-            String messageId = message.getJMSMessageID();
+        RedissonClient client = context.client();
 
-            byte[] propsKey = getDestinationPropsKey(message.getJMSDestination(), messageId);
-            Pipeline pipe = client.pipelined();
+        try {
+            String messageId = message.getJMSMessageID();
+            String propsKey = getDestinationPropsKey(message.getJMSDestination(), messageId);
+            String bodyKey = getDestinationBodyKey(message.getJMSDestination(), messageId);
+
+            RBatch batch = client.createBatch().atomic();
             if (message.getJMSDestination() instanceof Topic) {
                 String itemConsumersKey = getTopicItemConsumersKey(message.getJMSDestination(), messageId);
 
-                client.srem(itemConsumersKey, context.getClientID());
-                long len = client.scard(itemConsumersKey);
+                client.getSet(itemConsumersKey).remove(context.getClientID());
+                long len = client.getSet(itemConsumersKey).size();
                 if (len > 0) {
                     consumer.consume(message);
 
@@ -49,12 +52,11 @@ public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
                     return;
                 }
 
-                pipe.del(itemConsumersKey);
+                batch.getKeys().deleteAsync(itemConsumersKey);
             }
 
-            pipe.del(propsKey);
-            pipe.del(getDestinationBodyKey(message.getJMSDestination(), messageId));
-            pipe.sync();
+            batch.getKeys().deleteAsync(propsKey, bodyKey);
+            batch.execute();
 
             //从消息消费列表中移除
             consumer.consume(message);

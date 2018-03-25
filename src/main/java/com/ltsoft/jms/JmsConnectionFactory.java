@@ -1,7 +1,7 @@
 package com.ltsoft.jms;
 
 import com.ltsoft.jms.util.ThreadPool;
-import redis.clients.jedis.JedisPool;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.*;
 import java.text.MessageFormat;
@@ -18,7 +18,7 @@ public class JmsConnectionFactory implements ConnectionFactory {
 
     private static final Logger LOGGER = Logger.getLogger(JmsConnectionFactory.class.getName());
 
-    private JedisPool jedisPool;
+    private RedissonClient client;
 
     private String clientId;
 
@@ -34,24 +34,24 @@ public class JmsConnectionFactory implements ConnectionFactory {
     }
 
     /**
-     * 基于 JedisPool 和 clientId 构建
+     * 基于 RedissonClient 和 clientId 构建
      *
-     * @param clientId  客户端 ID
-     * @param jedisPool Jedis 连接池
+     * @param clientId 客户端 ID
+     * @param client   Redisson 客户端
      */
-    public JmsConnectionFactory(String clientId, JedisPool jedisPool) {
-        this(clientId, jedisPool, new JmsConfig());
+    public JmsConnectionFactory(String clientId, RedissonClient client) {
+        this(clientId, client, new JmsConfig());
     }
 
     /**
-     * 基于 JedisPool、clientId 和配置信息构建
+     * 基于 RedissonClient、clientId 和配置信息构建
      *
-     * @param jedisPool Jedis 连接池
      * @param clientId  客户端 ID
+     * @param client    Redisson 客户端
      * @param jmsConfig 运行配置
      */
-    public JmsConnectionFactory(String clientId, JedisPool jedisPool, JmsConfig jmsConfig) {
-        setJedisPool(jedisPool);
+    public JmsConnectionFactory(String clientId, RedissonClient client, JmsConfig jmsConfig) {
+        setRedissonClient(client);
         setClientId(clientId);
         setJmsConfig(jmsConfig);
     }
@@ -92,7 +92,7 @@ public class JmsConnectionFactory implements ConnectionFactory {
 
         LOGGER.finest(() -> String.format("Create JMSContext with clientId: %s, sessionMode: %s", clientId, sessionMode));
 
-        return new JmsContextImpl(requireNonNull(clientId), requireNonNull(jedisPool), jmsConfig, threadPool, sessionMode);
+        return new JmsContextImpl(requireNonNull(clientId), requireNonNull(client), jmsConfig, threadPool, sessionMode);
     }
 
     @Override
@@ -105,8 +105,8 @@ public class JmsConnectionFactory implements ConnectionFactory {
         throw new UnsupportedOperationException();
     }
 
-    public void setJedisPool(JedisPool jedisPool) {
-        this.jedisPool = jedisPool;
+    public void setRedissonClient(RedissonClient client) {
+        this.client = client;
     }
 
     public void setClientId(String clientId) {

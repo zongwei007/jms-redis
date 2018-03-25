@@ -9,7 +9,7 @@ public class KeyHelper {
 
     private static final String DELIMITER = ":";
 
-    private static final String PREFIX = "MESSAGE";
+    private static final String PREFIX = "JMS";
     private static final String CONSUMERS = "CONSUMERS";
     private static final String ID_BACKUP = "MSG_ID_BACKUP";
 
@@ -30,8 +30,8 @@ public class KeyHelper {
      * @param messageId   消息 ID
      * @return 消息实体 Key
      */
-    public static byte[] getDestinationPropsKey(Destination destination, String messageId) {
-        return String.join(DELIMITER, PREFIX, destination.toString(), messageId).getBytes();
+    public static String getDestinationPropsKey(Destination destination, String messageId) {
+        return String.join(DELIMITER, PREFIX, destination.toString(), messageId);
     }
 
     /**
@@ -41,8 +41,8 @@ public class KeyHelper {
      * @param messageId   消息ID
      * @return 消息内容 Key
      */
-    public static byte[] getDestinationBodyKey(Destination destination, String messageId) {
-        return String.join(DELIMITER, PREFIX, destination.toString(), messageId, "BODY").getBytes();
+    public static String getDestinationBodyKey(Destination destination, String messageId) {
+        return String.join(DELIMITER, PREFIX, destination.toString(), messageId, "BODY");
     }
 
     /**

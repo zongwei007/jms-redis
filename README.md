@@ -21,7 +21,8 @@
 ## 使用方式
 
 ```java
-import redis.clients.jedis.JedisPool;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
 import com.ltsoft.jms.JmsConnectionFactory;
 
 import javax.jms.*;
@@ -29,8 +30,8 @@ import javax.jms.*;
 public class Example {
 
     public static void main(String[] args) throws Exception {
-        JedisPool jedisPool = new JedisPool();
-        ConnectionFactory factory = new JmsConnectionFactory(jedisPool, "ClientId");
+        RedissonClient client = Redisson.create();
+        ConnectionFactory factory = new JmsConnectionFactory(client, "ClientId");
 
         try (JMSContext context = factory.createContext()) {
             Queue queue = context.createQueue("Queue");
@@ -42,7 +43,7 @@ public class Example {
             System.out.println(message.getBody(String.class));
         }
         
-        jedisPool.close();
+        client.shutdown();
         System.exit(0);
     }
 }
@@ -51,7 +52,3 @@ public class Example {
 ## 关于序列化
 
 默认使用 Java 自带的序列化工具实现序列化支持，并允许使用 Java 的 SPI 机制进行扩展。如果需要替换默认实现，通过 SPI 扩展 `com.ltsoft.jms.util.Serializer` 接口即可。
-
-## 关于编译
-
-项目依赖的是个人修改过的 Jedis（补充了 `BinaryJedisPubSub` 的 `ping` 功能），见：[zongwei007/jedis](https://github.com/zongwei007/jedis)

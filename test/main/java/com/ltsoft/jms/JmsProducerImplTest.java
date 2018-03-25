@@ -7,8 +7,11 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
+import org.redisson.Redisson;
+import org.redisson.api.RMap;
+import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.ByteArrayCodec;
+import org.redisson.client.codec.StringCodec;
 
 import javax.jms.*;
 import java.util.HashMap;
@@ -28,31 +31,29 @@ import static org.assertj.core.api.Fail.fail;
 public class JmsProducerImplTest {
 
 
-    private static JedisPool pool;
+    private static RedissonClient client;
     private static JmsContextImpl context;
 
     private Queue queue = context.createQueue("queue");
 
     @BeforeClass
     public static void setupBeforeClass() {
-        pool = new JedisPool("localhost", 6379);
+        client = Redisson.create();
         JmsConfig jmsConfig = new JmsConfig();
         ThreadPool threadPool = new ThreadPool(jmsConfig);
 
-        context = new JmsContextImpl("ClientID", pool, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JmsContextImpl("ClientID", client, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass
     public static void tearDownAfterClass() {
         context.close();
-        pool.close();
+        client.shutdown();
     }
 
     @Before
     public void setup() {
-        try (Jedis client = pool.getResource()) {
-            client.flushDB();
-        }
+        client.getKeys().flushdb();
     }
 
     @Test
@@ -61,48 +62,43 @@ public class JmsProducerImplTest {
 
         context.createProducer().send(queue, message);
 
-        try (Jedis client = pool.getResource()) {
-            assertThat(client.llen(getDestinationKey(queue))).isGreaterThan(0);
-            assertThat(client.exists(getDestinationPropsKey(queue, message.getJMSMessageID()))).isTrue();
-        }
+        assertThat(client.getList(getDestinationKey(queue)).size()).isGreaterThan(0);
+        assertThat(client.getKeys().countExists(getDestinationPropsKey(queue, message.getJMSMessageID()))).isGreaterThan(0);
     }
 
     @Test
     public void sendText() throws Exception {
         context.createProducer().send(queue, "text");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            assertThat(messageId).isNotEmpty();
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message).isInstanceOf(TextMessage.class);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        assertThat(messageId).isNotEmpty();
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message).isInstanceOf(TextMessage.class);
     }
 
     @Test
     public void sendMap() throws Exception {
-        Map<String, Object> map = new HashMap<>();
-        map.put("foo", 1);
-        context.createProducer().send(queue, map);
+        Map<String, Object> value = new HashMap<>();
+        value.put("foo", 1);
+        context.createProducer().send(queue, value);
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            assertThat(messageId).isNotEmpty();
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message).isInstanceOf(MapMessage.class);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        assertThat(messageId).isNotEmpty();
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message).isInstanceOf(MapMessage.class);
     }
 
     @Test
     public void sendBytes() throws Exception {
         context.createProducer().send(queue, "foo".getBytes());
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            assertThat(messageId).isNotEmpty();
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message).isInstanceOf(StreamMessage.class);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        assertThat(messageId).isNotEmpty();
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message).isInstanceOf(StreamMessage.class);
     }
 
     @Test
@@ -112,12 +108,11 @@ public class JmsProducerImplTest {
 
         context.createProducer().send(queue, obj);
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            assertThat(messageId).isNotEmpty();
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message).isInstanceOf(ObjectMessage.class);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        assertThat(messageId).isNotEmpty();
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message).isInstanceOf(ObjectMessage.class);
     }
 
     @Test
@@ -146,11 +141,10 @@ public class JmsProducerImplTest {
                 .setDisableMessageTimestamp(true)
                 .send(queue, "foo");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message.getJMSTimestamp()).isEqualTo(0);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message.getJMSTimestamp()).isEqualTo(0);
     }
 
     @Test
@@ -169,16 +163,13 @@ public class JmsProducerImplTest {
                 .setTimeToLive(1000)
                 .send(queue, "text");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            assertThat(client.ttl(getDestinationPropsKey(queue, messageId))).isGreaterThan(0);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        assertThat(client.getKeys().remainTimeToLive(getDestinationPropsKey(queue, messageId))).isGreaterThan(0);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void deliveryDelay() throws Exception {
         context.createProducer().setDeliveryDelay(100);
-        fail("unsupported");
     }
 
     @Test
@@ -224,19 +215,18 @@ public class JmsProducerImplTest {
                 .setProperty("text", "foo")
                 .send(queue, "info");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message.getBooleanProperty("bool")).isTrue();
-            assertThat(message.getByteProperty("byte")).isEqualTo(Byte.valueOf("0"));
-            assertThat(message.getDoubleProperty("double")).isEqualTo(10D);
-            assertThat(message.getLongProperty("long")).isEqualTo(20L);
-            assertThat(message.getFloatProperty("float")).isEqualTo(30F);
-            assertThat(message.getShortProperty("short")).isEqualTo(Short.valueOf("40"));
-            assertThat(message.getIntProperty("int")).isEqualTo(50);
-            assertThat(message.getObjectProperty("obj")).isInstanceOf(String.class);
-            assertThat(message.getStringProperty("text")).isEqualTo("foo");
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message.getBooleanProperty("bool")).isTrue();
+        assertThat(message.getByteProperty("byte")).isEqualTo(Byte.valueOf("0"));
+        assertThat(message.getDoubleProperty("double")).isEqualTo(10D);
+        assertThat(message.getLongProperty("long")).isEqualTo(20L);
+        assertThat(message.getFloatProperty("float")).isEqualTo(30F);
+        assertThat(message.getShortProperty("short")).isEqualTo(Short.valueOf("40"));
+        assertThat(message.getIntProperty("int")).isEqualTo(50);
+        assertThat(message.getObjectProperty("obj")).isInstanceOf(String.class);
+        assertThat(message.getStringProperty("text")).isEqualTo("foo");
     }
 
     @Test
@@ -259,11 +249,10 @@ public class JmsProducerImplTest {
                 .setJMSCorrelationIDAsBytes(idAsBytes)
                 .send(queue, "info");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message.getJMSCorrelationIDAsBytes()).isEqualTo(idAsBytes);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message.getJMSCorrelationIDAsBytes()).isEqualTo(idAsBytes);
     }
 
     @Test
@@ -273,11 +262,10 @@ public class JmsProducerImplTest {
                 .setJMSCorrelationID(id)
                 .send(queue, "info");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message.getJMSCorrelationID()).isEqualTo(id);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message.getJMSCorrelationID()).isEqualTo(id);
     }
 
     @Test(expected = UnsupportedOperationException.class)
@@ -299,11 +287,10 @@ public class JmsProducerImplTest {
                 .setJMSReplyTo(reply)
                 .send(queue, "info");
 
-        try (Jedis client = pool.getResource()) {
-            String messageId = client.lindex(getDestinationKey(queue), 0);
-            JmsMessage message = fromMap(toStringKey(client.hgetAll(getDestinationPropsKey(queue, messageId))));
-            assertThat(message.getJMSReplyTo()).isEqualTo(reply);
-        }
+        String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
+        RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
+        JmsMessage message = fromMap(toStringKey(map.readAllMap()));
+        assertThat(message.getJMSReplyTo()).isEqualTo(reply);
     }
 
 }

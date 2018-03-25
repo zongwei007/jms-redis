@@ -6,7 +6,7 @@ import com.ltsoft.jms.destination.JmsTemporaryTopic;
 import com.ltsoft.jms.destination.JmsTopic;
 import com.ltsoft.jms.message.JmsMessageFactory;
 import com.ltsoft.jms.util.ThreadPool;
-import redis.clients.jedis.JedisPool;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.*;
 import java.io.Serializable;
@@ -27,7 +27,7 @@ public class JmsContextImpl implements JMSContext {
 
     private final String clientId;
 
-    private final JedisPool jedisPool;
+    private final RedissonClient client;
 
     private final JmsConfig jmsConfig;
 
@@ -44,13 +44,13 @@ public class JmsContextImpl implements JMSContext {
 
     private AtomicInteger messageCount = new AtomicInteger();
 
-    public JmsContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, ThreadPool threadPool, int sessionMode) {
-        this(clientId, jedisPool, jmsConfig, threadPool, sessionMode, new JmsMessageFactory());
+    public JmsContextImpl(String clientId, RedissonClient client, JmsConfig jmsConfig, ThreadPool threadPool, int sessionMode) {
+        this(clientId, client, jmsConfig, threadPool, sessionMode, new JmsMessageFactory());
     }
 
-    private JmsContextImpl(String clientId, JedisPool jedisPool, JmsConfig jmsConfig, ThreadPool threadPool, int sessionMode, JmsMessageFactory messageFactory) {
+    private JmsContextImpl(String clientId, RedissonClient client, JmsConfig jmsConfig, ThreadPool threadPool, int sessionMode, JmsMessageFactory messageFactory) {
         this.clientId = clientId;
-        this.jedisPool = jedisPool;
+        this.client = client;
         this.jmsConfig = jmsConfig;
         this.sessionMode = sessionMode;
         this.messageFactory = messageFactory;
@@ -58,10 +58,10 @@ public class JmsContextImpl implements JMSContext {
     }
 
     /**
-     * @return Jedis 连接池
+     * @return Redisson 客户端
      */
-    public JedisPool pool() {
-        return jedisPool;
+    public RedissonClient client() {
+        return client;
     }
 
     /**
@@ -87,7 +87,7 @@ public class JmsContextImpl implements JMSContext {
 
     @Override
     public JMSContext createContext(int sessionMode) {
-        return new JmsContextImpl(clientId, jedisPool, jmsConfig, threadPool, sessionMode, messageFactory);
+        return new JmsContextImpl(clientId, client, jmsConfig, threadPool, sessionMode, messageFactory);
     }
 
     @Override
@@ -309,12 +309,12 @@ public class JmsContextImpl implements JMSContext {
 
     @Override
     public TemporaryQueue createTemporaryQueue() {
-        return new JmsTemporaryQueue(jedisPool);
+        return new JmsTemporaryQueue(client);
     }
 
     @Override
     public TemporaryTopic createTemporaryTopic() {
-        return new JmsTemporaryTopic(jedisPool);
+        return new JmsTemporaryTopic(client);
     }
 
     @Override

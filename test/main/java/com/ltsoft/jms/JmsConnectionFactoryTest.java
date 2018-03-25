@@ -1,8 +1,11 @@
 package com.ltsoft.jms;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import redis.clients.jedis.JedisPool;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.JMSContext;
 import javax.jms.JMSRuntimeException;
@@ -19,11 +22,22 @@ public class JmsConnectionFactoryTest {
 
     private static final String USER = "USER";
     private static final String PASSWORD = "PASSWORD";
+    private RedissonClient client;
 
     @BeforeClass
     public static void beforeClass() throws Exception {
         InputStream is = JmsConnectionFactoryTest.class.getResourceAsStream("/logging.properties");
         LogManager.getLogManager().readConfiguration(is);
+    }
+
+    @Before
+    public void setUp() throws Exception {
+        client = Redisson.create();
+    }
+
+    @After
+    public void tearDown() {
+        client.shutdown();
     }
 
     @Test(expected = UnsupportedOperationException.class)
@@ -42,7 +56,7 @@ public class JmsConnectionFactoryTest {
     public void createContext() throws Exception {
         JmsConnectionFactory factory = new JmsConnectionFactory();
         factory.setClientId("Client");
-        factory.setJedisPool(new JedisPool());
+        factory.setRedissonClient(client);
         factory.setJmsConfig(new JmsConfig());
 
         JMSContext context = factory.createContext();

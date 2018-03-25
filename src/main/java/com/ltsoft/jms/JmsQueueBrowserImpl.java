@@ -2,8 +2,7 @@ package com.ltsoft.jms;
 
 import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.message.JmsMessage;
-import com.ltsoft.jms.message.JmsMessageHelper;
-import redis.clients.jedis.Jedis;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.JMSException;
 import javax.jms.Queue;
@@ -12,6 +11,7 @@ import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
 
+import static com.ltsoft.jms.message.JmsMessageHelper.fromMap;
 import static com.ltsoft.jms.util.KeyHelper.*;
 
 /**
@@ -19,11 +19,11 @@ import static com.ltsoft.jms.util.KeyHelper.*;
  */
 public class JmsQueueBrowserImpl implements QueueBrowser, AutoCloseable {
     private final Queue queue;
-    private final Jedis client;
+    private final RedissonClient client;
 
     JmsQueueBrowserImpl(Queue queue, JmsContextImpl context) {
         this.queue = queue;
-        this.client = context.pool().getResource();
+        this.client = context.client();
     }
 
     @Override
@@ -43,19 +43,19 @@ public class JmsQueueBrowserImpl implements QueueBrowser, AutoCloseable {
 
     @Override
     public void close() throws JMSException {
-        client.close();
+        //do nothing
     }
 
     private class QueueEnumeration implements Enumeration {
 
         private final Queue queue;
-        private final Jedis client;
+        private final RedissonClient client;
         private final Iterator<String> keyIterator;
 
-        QueueEnumeration(Queue queue, Jedis client) {
+        QueueEnumeration(Queue queue, RedissonClient client) {
             this.queue = queue;
             this.client = client;
-            this.keyIterator = client.lrange(getDestinationKey(queue), 0, -1).iterator();
+            this.keyIterator = client.<String>getList(getDestinationKey(queue)).readAll().iterator();
         }
 
         @Override
@@ -66,18 +66,19 @@ public class JmsQueueBrowserImpl implements QueueBrowser, AutoCloseable {
         @Override
         public Object nextElement() {
             String messageId = keyIterator.next();
-            byte[] propsKey = getDestinationPropsKey(queue, messageId);
+            String propsKey = getDestinationPropsKey(queue, messageId);
             try {
-                Map<String, byte[]> props = JmsMessageHelper.toStringKey(client.hgetAll(propsKey));
+
+                Map<String, byte[]> props = client.<String, byte[]>getMap(propsKey).readAllMap();
                 if (props.size() == 0) {
                     //消息有可能已过期
                     return null;
                 }
 
-                JmsMessage message = JmsMessageHelper.fromMap(props);
+                JmsMessage message = fromMap(props);
                 message.setJMSMessageID(messageId);
 
-                byte[] body = client.get(getDestinationBodyKey(queue, messageId));
+                byte[] body = client.<byte[]>getBucket(getDestinationBodyKey(queue, messageId)).get();
                 if (body != null) {
                     message.setBody(body);
                 }

@@ -4,15 +4,14 @@ import com.ltsoft.jms.JmsConsumerImpl;
 import com.ltsoft.jms.JmsContextImpl;
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.message.JmsMessageHelper;
-import redis.clients.jedis.BinaryJedisPubSub;
-import redis.clients.jedis.Jedis;
+import org.redisson.api.RedissonClient;
+import org.redisson.api.listener.MessageListener;
+import org.redisson.client.codec.ByteArrayCodec;
 
 import javax.jms.Destination;
 import javax.jms.JMSException;
-import javax.jms.MessageListener;
 import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,13 +20,13 @@ import static com.ltsoft.jms.util.KeyHelper.getDestinationKey;
 /**
  * 监听 Redis 的消息发布
  */
-public class NoPersistentListener extends BinaryJedisPubSub implements Listener {
+public class NoPersistentListener implements MessageListener<byte[]>, Listener {
 
     private static final Logger LOGGER = Logger.getLogger(NoPersistentListener.class.getName());
 
     private final JmsContextImpl context;
     private final String clientID;
-    private final MessageListener listener;
+    private final javax.jms.MessageListener listener;
     private final Destination destination;
     private final boolean noLocal;
     private ScheduledFuture<?> pingSchedule;
@@ -41,10 +40,10 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
     }
 
     @Override
-    public void onMessage(byte[] channel, byte[] bytes) {
+    public void onMessage(String channel, byte[] msg) {
         JmsMessage message = null;
         try {
-            message = JmsMessageHelper.fromBytes(bytes);
+            message = JmsMessageHelper.fromBytes(msg);
             if (noLocal && Objects.equals(message.getJMSXMessageFrom(), clientID)) {
                 return;
             }
@@ -61,8 +60,11 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
 
     @Override
     public void start() {
-        context.cachedPool().execute(() -> {
-            try (Jedis client = context.pool().getResource()) {
+        RedissonClient client = context.client();
+        client.<byte[]>getTopic(getDestinationKey(destination), ByteArrayCodec.INSTANCE).addListener(this);
+
+        /*context.cachedPool().execute(() -> {
+            try (Jedis client = context.client().getResource()) {
                 client.subscribe(this, getDestinationKey(destination).getBytes());
                 // subscribe/unsubscribe 会使 client 的 pipelinedCommands 计数器增长
                 // 导致连接在被 pipe 使用时由于与预期计数不符，造成 Read timed out 异常
@@ -78,15 +80,13 @@ public class NoPersistentListener extends BinaryJedisPubSub implements Listener 
         if (period != 0) {
             this.pingSchedule = context.scheduledPool().scheduleAtFixedRate(
                     this::ping, 0, period, TimeUnit.SECONDS);
-        }
+        }*/
 
         LOGGER.finest(() -> String.format("Client '%s' is listening to '%s'", clientID, destination));
     }
 
     @Override
     public void stop() {
-        this.unsubscribe();
-
         if (pingSchedule != null) {
             pingSchedule.cancel(false);
         }

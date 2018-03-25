@@ -2,8 +2,10 @@ package com.ltsoft.jms;
 
 import com.ltsoft.jms.util.ThreadPool;
 import org.junit.*;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
+import org.redisson.Redisson;
+import org.redisson.api.RScoredSortedSet;
+import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.StringCodec;
 
 import javax.jms.*;
 import java.time.Duration;
@@ -23,32 +25,30 @@ import static org.assertj.core.api.Assertions.fail;
  */
 public class JmsConsumerImplTest {
 
-    private static JedisPool pool;
+    private static RedissonClient client;
     private static JmsContextImpl context;
 
     private final long THREAD_WAIT = Duration.ofSeconds(5).toMillis();
 
     @BeforeClass
     public static void setupBeforeClass() throws Exception {
-        pool = new JedisPool();
+        client = Redisson.create();
         JmsConfig jmsConfig = new JmsConfig();
         ThreadPool threadPool = new ThreadPool(jmsConfig);
 
-        context = new JmsContextImpl("ClientID", pool, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
+        context = new JmsContextImpl("ClientID", client, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
     @AfterClass
     public static void tearDownAfterClass() throws Exception {
         context.close();
-        pool.close();
+        client.shutdown();
     }
 
     @Before
     @After
     public void setup() throws Exception {
-        try (Jedis client = pool.getResource()) {
-            client.flushDB();
-        }
+        client.getKeys().flushdb();
     }
 
     @Test
@@ -56,17 +56,15 @@ public class JmsConsumerImplTest {
         Topic topic = context.createTopic("register");
 
         String consumerKey = getTopicConsumersKey(topic);
+        RScoredSortedSet<String> scoredSortedSet = client.getScoredSortedSet(consumerKey, StringCodec.INSTANCE);
 
-        try (Jedis client = pool.getResource()) {
-            try (JMSConsumer consumer = context.createConsumer(topic)) {
+        try (JMSConsumer consumer = context.createConsumer(topic)) {
+            Thread.sleep(1000);
 
-                Thread.sleep(1000);
-
-                assertThat(client.zcard(consumerKey)).isGreaterThan(0);
-                assertThat(client.zrange(consumerKey, 0, -1).contains("ClientID"));
-            }
-            assertThat(client.zcard(consumerKey)).isEqualTo(0);
+            assertThat(scoredSortedSet.size()).isGreaterThan(0);
+            assertThat(scoredSortedSet.readAll().contains("ClientID"));
         }
+        assertThat(scoredSortedSet.size()).isEqualTo(0);
     }
 
     @Test
@@ -116,17 +114,18 @@ public class JmsConsumerImplTest {
             assertThat(message).isNotNull();
             assertThat(message.getBody(String.class)).isEqualTo(text);
 
-            try (Jedis client = pool.getResource()) {
-                assertThat(client.exists(getDestinationPropsKey(queue, message.getJMSMessageID()))).isTrue();
-                assertThat(client.exists(getDestinationBodyKey(queue, message.getJMSMessageID()))).isTrue();
-            }
+
+            String propsKey = getDestinationPropsKey(queue, message.getJMSMessageID());
+            String bodyKey = getDestinationBodyKey(queue, message.getJMSMessageID());
+
+
+            assertThat(client.getKeys().countExists(propsKey)).isGreaterThan(0);
+            assertThat(client.getKeys().countExists(bodyKey)).isGreaterThan(0);
 
             message.acknowledge();
 
-            try (Jedis client = pool.getResource()) {
-                assertThat(client.exists(getDestinationPropsKey(queue, message.getJMSMessageID()))).isFalse();
-                assertThat(client.exists(getDestinationBodyKey(queue, message.getJMSMessageID()))).isFalse();
-            }
+            assertThat(client.getKeys().countExists(propsKey)).isEqualTo(0);
+            assertThat(client.getKeys().countExists(bodyKey)).isEqualTo(0);
         }
     }
 

@@ -1,6 +1,6 @@
 package com.ltsoft.jms.destination;
 
-import redis.clients.jedis.JedisPool;
+import org.redisson.api.RedissonClient;
 
 import javax.jms.JMSException;
 import javax.jms.TemporaryQueue;
@@ -10,11 +10,11 @@ import javax.jms.TemporaryQueue;
  */
 public class JmsTemporaryQueue extends JmsQueue implements TemporaryQueue {
 
-    private final JedisPool jedisPool;
+    private final RedissonClient client;
 
-    public JmsTemporaryQueue(JedisPool jedisPool) {
+    public JmsTemporaryQueue(RedissonClient client) {
         super("TEMPORARY_QUEUE:" + Math.round(Math.random() * 100000000));
-        this.jedisPool = jedisPool;
+        this.client = client;
     }
 
     @Override

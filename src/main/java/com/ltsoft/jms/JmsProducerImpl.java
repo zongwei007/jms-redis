@@ -3,14 +3,20 @@ package com.ltsoft.jms;
 import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.util.MessageProperty;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Pipeline;
+import org.redisson.api.RBatch;
+import org.redisson.api.RFuture;
+import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.ByteArrayCodec;
+import org.redisson.client.codec.StringCodec;
 
 import javax.jms.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import static com.ltsoft.jms.message.JmsMessageHelper.*;
@@ -27,6 +33,7 @@ public class JmsProducerImpl implements JMSProducer {
 
     private boolean disableMessageTimestamp = false;
     private int deliveryMode = DeliveryMode.PERSISTENT;
+    private long deliveryDelay;
     private int priority;
     private long timeToLive;
     private CompletionListener completionListener;
@@ -39,67 +46,78 @@ public class JmsProducerImpl implements JMSProducer {
         this.context = context;
     }
 
-    private JmsProducerImpl sendMessage(Destination destination, JmsMessage message) throws JMSException {
-        try (Jedis client = context.pool().getResource()) {
-            if (destination instanceof Topic) {
-                byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
-                byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
-                byte[] body = message.getBody();
-                long now = Instant.now().getEpochSecond();
-                long expire = context.config().getConsumerExpire().getSeconds();
+    private RFuture<?> sendMessageAsync(Destination destination, JmsMessage message) throws JMSException {
+        RedissonClient client = context.client();
 
-                if (DeliveryMode.PERSISTENT == deliveryMode) {
-                    //获取频道相关的所有订阅者
-                    Set<String> consumers = client.zrangeByScore(getTopicConsumersKey(destination), now - expire, now + expire);
-                    String consumersKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
+        RFuture<?> future;
 
-                    Pipeline pipe = client.pipelined();
-                    pipe.multi();
-                    pipe.hmset(propsKey, toBytesKey(toMap(message)));
-                    if (body != null) {
-                        pipe.set(bodyKey, body);
-                    }
-                    pipe.sadd(consumersKey, consumers.toArray(new String[consumers.size()]));
-                    for (String consumerId : consumers) {
-                        pipe.lpush(getTopicConsumerListKey(destination, consumerId), message.getJMSMessageID());
-                    }
-                    pipe.exec();
-                    if (timeToLive > 0) {
-                        pipe.pexpire(propsKey, timeToLive);
-                        pipe.pexpire(bodyKey, timeToLive);
-                        pipe.pexpire(consumersKey, timeToLive);
-                    }
-                    pipe.sync();
-                } else {
-                    client.publish(getDestinationKey(destination).getBytes(), toBytes(message));
-                }
-            } else if (destination instanceof Queue) {
-                byte[] propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
-                byte[] bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
-                byte[] body = message.getBody();
+        if (destination instanceof Topic) {
+            String propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
+            String bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
+            byte[] body = message.getBody();
+            long now = Instant.now().getEpochSecond();
+            long expire = context.config().getConsumerExpire().getSeconds();
 
-                Pipeline pipe = client.pipelined();
-                pipe.multi();
-                pipe.hmset(propsKey, toBytesKey(toMap(message)));
+            if (DeliveryMode.PERSISTENT == deliveryMode) {
+                //获取频道相关的所有订阅者
+                Collection<String> consumers = client.<String>getScoredSortedSet(getTopicConsumersKey(destination), StringCodec.INSTANCE)
+                        .valueRange(now - expire, true, now + expire, true);
+
+                String consumersKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
+
+                RBatch batch = client.createBatch().atomic();
+                batch.getMap(propsKey, ByteArrayCodec.INSTANCE).putAllAsync(toBytesKey(toMap(message)));
                 if (body != null) {
-                    pipe.set(bodyKey, body);
+                    batch.getBucket(bodyKey, ByteArrayCodec.INSTANCE).setAsync(body);
                 }
-                pipe.lpush(getDestinationKey(destination), message.getJMSMessageID());
-                pipe.exec();
+                batch.getSet(consumersKey, StringCodec.INSTANCE).addAllAsync(consumers);
+                for (String consumerId : consumers) {
+                    batch.getDeque(getTopicConsumerListKey(destination, consumerId), StringCodec.INSTANCE).addFirstAsync(message.getJMSMessageID());
+                }
                 if (timeToLive > 0) {
-                    pipe.pexpire(propsKey, timeToLive);
-                    pipe.pexpire(bodyKey, timeToLive);
+                    batch.getMap(propsKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
+                    batch.getBucket(bodyKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
+                    batch.getSet(consumersKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
                 }
-                pipe.sync();
+                future = batch.skipResult().executeAsync();
             } else {
-                throw new JMSException("不支持的目的类型");
+                future = client.getTopic(getDestinationKey(destination), ByteArrayCodec.INSTANCE).publishAsync(toBytes(message));
             }
+        } else if (destination instanceof Queue) {
+            String propsKey = getDestinationPropsKey(destination, message.getJMSMessageID());
+            String bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
+            byte[] body = message.getBody();
+
+            RBatch batch = client.createBatch().atomic();
+            batch.getMap(propsKey, ByteArrayCodec.INSTANCE).putAllAsync(toBytesKey(toMap(message)));
+            if (body != null) {
+                batch.getBucket(bodyKey, ByteArrayCodec.INSTANCE).setAsync(body);
+            }
+            batch.getDeque(getDestinationKey(destination), StringCodec.INSTANCE).addFirstAsync(message.getJMSMessageID());
+            if (timeToLive > 0) {
+                batch.getMap(propsKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
+                batch.getBucket(bodyKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
+            }
+
+            future = batch.skipResult().executeAsync();
+        } else {
+            throw new JMSException("不支持的目的类型");
         }
 
         LOGGER.finest(() -> String.format(
                 "Client '%s' send %s: %s, timeToLive: %s",
                 context.getClientID(), message.getClass().getSimpleName(), message, timeToLive
         ));
+
+        return future;
+    }
+
+    private JmsProducerImpl sendMessage(Destination destination, JmsMessage message) throws JMSException {
+        try {
+            sendMessageAsync(destination, message).get();   //TODO C:/Software/Apache/Maven/repo/org/redisson/redisson/3.6.3/redisson-3.6.3-sources.jar!/org/redisson/command/CommandAsyncService.java:140
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException("", e); //TODO
+        }
 
         return this;
     }
@@ -120,6 +138,7 @@ public class JmsProducerImpl implements JMSProducer {
             message.setJMSPriority(priority);
             message.setJMSReplyTo(replyTo);
             message.setJMSCorrelationID(correlationID);
+            message.setJMSDeliveryTime(deliveryDelay);
 
             JmsMessage item = (JmsMessage) message;
             item.setJMSXMessageFrom(context.getClientID());
@@ -127,12 +146,11 @@ public class JmsProducerImpl implements JMSProducer {
             item.mergeProperties(property);
 
             if (completionListener != null) {
-                context.cachedPool().execute(() -> {
-                    try {
-                        sendMessage(destination, item);
+                sendMessageAsync(destination, item).whenCompleteAsync((result, e) -> {
+                    if (e != null) {
+                        completionListener.onException(message, JMSExceptionSupport.create(e));
+                    } else {
                         completionListener.onCompletion(message);
-                    } catch (Exception e) {
-                        completionListener.onException(message, e);
                     }
                 });
             } else {
@@ -235,12 +253,13 @@ public class JmsProducerImpl implements JMSProducer {
 
     @Override
     public JMSProducer setDeliveryDelay(long deliveryDelay) {
-        throw new UnsupportedOperationException();
+        this.deliveryDelay = deliveryDelay;
+        return this;
     }
 
     @Override
     public long getDeliveryDelay() {
-        return 0;
+        return deliveryDelay;
     }
 
     @Override
