@@ -18,7 +18,7 @@ public class PersistentListener implements Listener {
 
     private static final Logger LOGGER = Logger.getLogger(PersistentListener.class.getName());
 
-    private static final int DURATION = (int) Duration.ofMinutes(1).getSeconds();
+    private static final long DURATION = Duration.ofMinutes(1).toMillis();
 
     private final JmsContextImpl context;
     private final JmsConsumerImpl consumer;

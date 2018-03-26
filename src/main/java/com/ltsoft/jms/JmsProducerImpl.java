@@ -15,7 +15,6 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -112,14 +111,12 @@ public class JmsProducerImpl implements JMSProducer {
         return future;
     }
 
-    private JmsProducerImpl sendMessage(Destination destination, JmsMessage message) throws JMSException {
+    private void sendMessage(Destination destination, JmsMessage message) throws JMSException {
         try {
-            sendMessageAsync(destination, message).get();   //TODO C:/Software/Apache/Maven/repo/org/redisson/redisson/3.6.3/redisson-3.6.3-sources.jar!/org/redisson/command/CommandAsyncService.java:140
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException("", e); //TODO
+            sendMessageAsync(destination, message).sync();
+        } catch (InterruptedException e) {
+            throw JMSExceptionSupport.create(e);
         }
-
-        return this;
     }
 
     @Override

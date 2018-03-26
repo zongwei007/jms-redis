@@ -5,10 +5,7 @@ import com.ltsoft.jms.listener.Listener;
 import com.ltsoft.jms.listener.NoPersistentListener;
 import com.ltsoft.jms.listener.PersistentListener;
 import com.ltsoft.jms.message.JmsMessage;
-import org.redisson.api.RBlockingDeque;
-import org.redisson.api.RDeque;
-import org.redisson.api.RScoredSortedSet;
-import org.redisson.api.RedissonClient;
+import org.redisson.api.*;
 import org.redisson.client.codec.ByteArrayCodec;
 import org.redisson.client.codec.StringCodec;
 
@@ -231,9 +228,9 @@ public class JmsConsumerImpl implements JMSConsumer {
 
         try {
             RBlockingDeque<String> blockingDeque = context.client().getBlockingDeque(key, StringCodec.INSTANCE);
-            return readMessage(blockingDeque.pollLastAndOfferFirstTo(backupKey, timeout, TimeUnit.SECONDS));
+            return readMessage(blockingDeque.pollLastAndOfferFirstTo(backupKey, timeout, TimeUnit.MILLISECONDS));
         } catch (InterruptedException e) {
-            throw new RuntimeException("", e);//TODO
+            throw JMSExceptionSupport.wrap(JMSExceptionSupport.create(String.format("Read message from '%s' fail case thread interrupted", key), e));
         }
     }
 
@@ -273,15 +270,20 @@ public class JmsConsumerImpl implements JMSConsumer {
                 if (Objects.isNull(consumingMessage) || now.isAfter(consumingMessage.getTimeoutAt())) {
 
                     boolean remoteExist = false;
+                    RSet<Object> consumerKeys = client.getSet(getTopicItemConsumersKey(destination, messageId), StringCodec.INSTANCE);
+
                     if (destination instanceof Topic) {
-                        remoteExist = client.getSet(getTopicItemConsumersKey(destination, messageId), StringCodec.INSTANCE).contains(context.getClientID());
+                        remoteExist = consumerKeys.contains(context.getClientID());
                     } else if (destination instanceof Queue) {
                         remoteExist = client.getKeys().countExists(getDestinationPropsKey(destination, messageId)) > 0;
                     }
+
+                    RDeque<Object> backupDeque = client.getDeque(backupKey, StringCodec.INSTANCE);
                     if (remoteExist) {
-                        client.getDeque(backupKey, StringCodec.INSTANCE).pollLastAndOfferFirstTo(getMessageListKey());
+                        //消息未正常消费，重新入列
+                        backupDeque.pollLastAndOfferFirstTo(getMessageListKey());
                     } else {
-                        client.getDeque(backupKey, StringCodec.INSTANCE).pollLast();
+                        backupDeque.pollLast();
                     }
 
                     if (Objects.nonNull(consumingMessage)) {

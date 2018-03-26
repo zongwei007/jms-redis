@@ -4,6 +4,7 @@ import com.ltsoft.jms.JmsConsumerImpl;
 import com.ltsoft.jms.JmsContextImpl;
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.message.JmsMessageHelper;
+import org.redisson.api.RTopic;
 import org.redisson.api.RedissonClient;
 import org.redisson.api.listener.MessageListener;
 import org.redisson.client.codec.ByteArrayCodec;
@@ -11,7 +12,6 @@ import org.redisson.client.codec.ByteArrayCodec;
 import javax.jms.Destination;
 import javax.jms.JMSException;
 import java.util.Objects;
-import java.util.concurrent.ScheduledFuture;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -29,7 +29,7 @@ public class NoPersistentListener implements MessageListener<byte[]>, Listener {
     private final javax.jms.MessageListener listener;
     private final Destination destination;
     private final boolean noLocal;
-    private ScheduledFuture<?> pingSchedule;
+    private RTopic<byte[]> topic;
 
     public NoPersistentListener(JmsConsumerImpl consumer) {
         this.context = consumer.context();
@@ -61,36 +61,18 @@ public class NoPersistentListener implements MessageListener<byte[]>, Listener {
     @Override
     public void start() {
         RedissonClient client = context.client();
-        client.<byte[]>getTopic(getDestinationKey(destination), ByteArrayCodec.INSTANCE).addListener(this);
+        this.topic = client.getTopic(getDestinationKey(destination), ByteArrayCodec.INSTANCE);
 
-        /*context.cachedPool().execute(() -> {
-            try (Jedis client = context.client().getResource()) {
-                client.subscribe(this, getDestinationKey(destination).getBytes());
-                // subscribe/unsubscribe 会使 client 的 pipelinedCommands 计数器增长
-                // 导致连接在被 pipe 使用时由于与预期计数不符，造成 Read timed out 异常
-                // 这个问题在 JedisPubSub 中已修复，BinaryJedisPubSub 中却没有……
-                // 另外，JedisPubSub 中还添加了 ping 的支持；同样的，BinaryJedisPubSub 中也没有……
-                // 解决方法是：使用定制版本的 Jedis :(
-            }
-
-            LOGGER.finest(() -> String.format("Client '%s' listener of '%s' is exist", clientID, destination));
-        });
-
-        long period = context.config().getListenerKeepLive().getSeconds();
-        if (period != 0) {
-            this.pingSchedule = context.scheduledPool().scheduleAtFixedRate(
-                    this::ping, 0, period, TimeUnit.SECONDS);
-        }*/
+        topic.addListener(this);
 
         LOGGER.finest(() -> String.format("Client '%s' is listening to '%s'", clientID, destination));
     }
 
     @Override
     public void stop() {
-        if (pingSchedule != null) {
-            pingSchedule.cancel(false);
+        if (topic != null) {
+            topic.removeListener(this);
         }
-
         LOGGER.finest(() -> String.format("Client '%s' stop listening to '%s'", clientID, destination));
     }
 }
