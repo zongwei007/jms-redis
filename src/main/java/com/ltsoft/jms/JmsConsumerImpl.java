@@ -289,9 +289,12 @@ public class JmsConsumerImpl implements JMSConsumer {
                     if (Objects.nonNull(consumingMessage)) {
                         consumingMessages.remove(messageId);
                     }
+                } else {
+                    //备份队列队尾元素正在消费中，可以认为备份队列中无历史记录。
+                    break;
                 }
             } else {
-                // 备份队列为空或备份队列队尾元素正在消费中，可以认为备份队列中无历史记录
+                //备份队列为空，结束处理
                 break;
             }
         } while (true);
