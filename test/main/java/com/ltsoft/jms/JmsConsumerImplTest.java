@@ -100,6 +100,16 @@ public class JmsConsumerImplTest {
     }
 
     @Test
+    public void testReceiveToTimeout() {
+
+        Queue queue = context.createQueue("receive-to-timeout");
+
+        try (JMSConsumer consumer = context.createConsumer(queue)) {
+            assertThat(consumer.receive(Duration.ofSeconds(1).toMillis())).isNull();
+        }
+    }
+
+    @Test
     public void testMessageAck() throws Exception {
 
         String text = "a text info";

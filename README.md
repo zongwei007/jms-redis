@@ -5,7 +5,7 @@
 
 * 支持 JMS 的基本消息类型
 * 支持 AUTO_ACKNOWLEDGE、CLIENT_ACKNOWLEDGE、DUPS_OK_ACKNOWLEDGE 三种 SessionMode
-* 非持久化的消息通过 Jedis 的 publish API 发送
+* 非持久化的消息通过 Redis 的 publish 特性发送
 * 所有的 Queue 和 Topic 都可以被多个消费者监听，不支持互斥消费行为
 * 所以 createSharedConsumer 的 API 用于创建监听非持久化消息的消息消费者了
 
