@@ -6,6 +6,7 @@ import com.ltsoft.jms.listener.NoPersistentListener;
 import com.ltsoft.jms.listener.PersistentListener;
 import com.ltsoft.jms.message.JmsMessage;
 import org.redisson.api.*;
+import org.redisson.client.RedisTimeoutException;
 import org.redisson.client.codec.ByteArrayCodec;
 import org.redisson.client.codec.StringCodec;
 
@@ -229,6 +230,9 @@ public class JmsConsumerImpl implements JMSConsumer {
         try {
             RBlockingDeque<String> blockingDeque = context.client().getBlockingDeque(key, StringCodec.INSTANCE);
             return readMessage(blockingDeque.pollLastAndOfferFirstTo(backupKey, timeout, TimeUnit.MILLISECONDS));
+        } catch (RedisTimeoutException e) {
+            //BLOCK 操作超时会触发该异常
+            return null;
         } catch (InterruptedException e) {
             throw JMSExceptionSupport.wrap(JMSExceptionSupport.create(String.format("Read message from '%s' fail case thread interrupted", key), e));
         }
