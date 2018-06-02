@@ -3,12 +3,12 @@ package com.ltsoft.jms.message;
 import com.ltsoft.jms.type.IntegerType;
 import com.ltsoft.jms.type.StringType;
 import com.ltsoft.jms.util.MessageType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.jms.ObjectMessage;
 
 import static com.ltsoft.jms.message.JmsMessageHelper.getMessageId;
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 对象消息测试
@@ -28,7 +28,7 @@ public class JmsObjectMessageTest {
 
         ObjectMessage result = JmsMessageHelper.fromBytes(bytes);
 
-        assertThat(result.getObject()).isInstanceOf(StringType.class);
+        assertTrue(result.getObject() instanceof StringType);
     }
 
     @Test
@@ -44,12 +44,12 @@ public class JmsObjectMessageTest {
 
         ObjectMessage result = JmsMessageHelper.fromBytes(bytes);
 
-        assertThat(result.getBody(StringType.class).getString()).isEqualTo("foo");
+        assertEquals("foo", result.getBody(StringType.class).getString());
     }
 
     @Test
     public void getJMSType() throws Exception {
-        assertThat(new JmsObjectMessage().getJMSType()).isEqualTo(MessageType.Object.name());
+        assertEquals(MessageType.Object.name(), new JmsObjectMessage().getJMSType());
     }
 
     @Test
@@ -60,11 +60,11 @@ public class JmsObjectMessageTest {
         JmsObjectMessage message = new JmsObjectMessage();
         message.setObject(type);
 
-        assertThat(message.getBody(StringType.class)).isNotNull();
+        assertNotNull(message.getBody(StringType.class));
 
         message.clearBody();
 
-        assertThat(message.getBody(StringType.class)).isNull();
+        assertNull(message.getBody(StringType.class));
     }
 
     @Test
@@ -75,8 +75,8 @@ public class JmsObjectMessageTest {
         JmsObjectMessage message = new JmsObjectMessage();
         message.setObject(type);
 
-        assertThat(message.isBodyAssignableTo(StringType.class)).isTrue();
-        assertThat(message.isBodyAssignableTo(IntegerType.class)).isFalse();
+        assertTrue(message.isBodyAssignableTo(StringType.class));
+        assertFalse(message.isBodyAssignableTo(IntegerType.class));
     }
 
 }

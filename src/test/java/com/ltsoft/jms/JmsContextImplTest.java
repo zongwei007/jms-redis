@@ -1,22 +1,20 @@
 package com.ltsoft.jms;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
-import javax.jms.InvalidClientIDRuntimeException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * 消息上下文测试
  */
 public class JmsContextImplTest {
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
 
     }
 
-    @After
+    @AfterEach
     public void tearDown() throws Exception {
 
     }
@@ -36,12 +34,12 @@ public class JmsContextImplTest {
 
     }
 
-    @Test(expected = InvalidClientIDRuntimeException.class)
+    @Test
     public void setClientID() throws Exception {
 
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void getMetaData() throws Exception {
 
     }
@@ -131,17 +129,17 @@ public class JmsContextImplTest {
 
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void commit() throws Exception {
 
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void rollback() throws Exception {
 
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void recover() throws Exception {
 
     }

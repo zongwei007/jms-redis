@@ -1,7 +1,10 @@
 package com.ltsoft.jms;
 
 import com.ltsoft.jms.util.ThreadPool;
-import org.junit.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.redisson.Redisson;
 import org.redisson.api.RScoredSortedSet;
 import org.redisson.api.RedissonClient;
@@ -10,6 +13,7 @@ import org.redisson.client.codec.StringCodec;
 import javax.jms.*;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -17,8 +21,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static com.ltsoft.jms.util.KeyHelper.*;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 消费者测试
@@ -30,7 +33,7 @@ public class JmsConsumerImplTest {
 
     private final long THREAD_WAIT = Duration.ofSeconds(5).toMillis();
 
-    @BeforeClass
+    @BeforeAll
     public static void setupBeforeClass() throws Exception {
         client = Redisson.create();
         JmsConfig jmsConfig = new JmsConfig();
@@ -39,14 +42,13 @@ public class JmsConsumerImplTest {
         context = new JmsContextImpl("ClientID", client, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownAfterClass() throws Exception {
         context.close();
         client.shutdown();
     }
 
-    @Before
-    @After
+    @BeforeEach
     public void setup() throws Exception {
         client.getKeys().flushdb();
     }
@@ -61,10 +63,11 @@ public class JmsConsumerImplTest {
         try (JMSConsumer consumer = context.createConsumer(topic)) {
             Thread.sleep(1000);
 
-            assertThat(scoredSortedSet.size()).isGreaterThan(0);
-            assertThat(scoredSortedSet.readAll().contains("ClientID"));
+            assertTrue(scoredSortedSet.size() > 0);
+            assertTrue(scoredSortedSet.readAll().contains("ClientID"));
         }
-        assertThat(scoredSortedSet.size()).isEqualTo(0);
+
+        assertEquals(0, scoredSortedSet.size());
     }
 
     @Test
@@ -79,7 +82,7 @@ public class JmsConsumerImplTest {
 
             context.createProducer().send(queue, text);
 
-            assertThat(future.get()).isEqualTo(text);
+            assertEquals(text, future.get());
         }
     }
 
@@ -91,11 +94,11 @@ public class JmsConsumerImplTest {
         Queue queue = context.createQueue("receive-no-wait");
 
         try (JMSConsumer consumer = context.createConsumer(queue)) {
-            assertThat(consumer.receiveBodyNoWait(String.class)).isNull();
+            assertNull(consumer.receiveBodyNoWait(String.class));
 
             context.createProducer().send(queue, text);
 
-            assertThat(consumer.receiveBodyNoWait(String.class)).isEqualTo(text);
+            assertEquals(text, consumer.receiveBodyNoWait(String.class));
         }
     }
 
@@ -105,7 +108,7 @@ public class JmsConsumerImplTest {
         Queue queue = context.createQueue("receive-to-timeout");
 
         try (JMSConsumer consumer = context.createConsumer(queue)) {
-            assertThat(consumer.receive(Duration.ofSeconds(1).toMillis())).isNull();
+            assertNull(consumer.receive(Duration.ofSeconds(1).toMillis()));
         }
     }
 
@@ -121,21 +124,21 @@ public class JmsConsumerImplTest {
         try (JMSConsumer consumer = context.createConsumer(queue)) {
 
             Message message = consumer.receiveNoWait();
-            assertThat(message).isNotNull();
-            assertThat(message.getBody(String.class)).isEqualTo(text);
+            assertNotNull(message);
+            assertEquals(text, message.getBody(String.class));
 
 
             String propsKey = getDestinationPropsKey(queue, message.getJMSMessageID());
             String bodyKey = getDestinationBodyKey(queue, message.getJMSMessageID());
 
 
-            assertThat(client.getKeys().countExists(propsKey)).isGreaterThan(0);
-            assertThat(client.getKeys().countExists(bodyKey)).isGreaterThan(0);
+            assertTrue(client.getKeys().countExists(propsKey) > 0);
+            assertTrue(client.getKeys().countExists(bodyKey) > 0);
 
             message.acknowledge();
 
-            assertThat(client.getKeys().countExists(propsKey)).isEqualTo(0);
-            assertThat(client.getKeys().countExists(bodyKey)).isEqualTo(0);
+            assertEquals(0, client.getKeys().countExists(propsKey));
+            assertEquals(0, client.getKeys().countExists(bodyKey));
         }
     }
 
@@ -170,7 +173,7 @@ public class JmsConsumerImplTest {
 
         countDown.await(20, TimeUnit.SECONDS);
 
-        assertThat(props).containsOnly(0, 1, 2, 3, 4);
+        assertIterableEquals(props, Arrays.asList(0, 1, 2, 3, 4));
 
         consumer.close();
     }
@@ -218,7 +221,7 @@ public class JmsConsumerImplTest {
 
         countDown.await(20, TimeUnit.SECONDS);
 
-        assertThat(props).containsOnly(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+        assertIterableEquals(props, Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9));
 
         consumer.close();
     }
@@ -265,7 +268,7 @@ public class JmsConsumerImplTest {
 
         Thread.sleep(1000);
 
-        assertThat(props).containsOnly(5, 6, 7, 8, 9);
+        assertIterableEquals(props, Arrays.asList(5, 6, 7, 8, 9));
 
         consumer.close();
     }

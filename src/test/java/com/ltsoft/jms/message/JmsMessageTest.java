@@ -1,11 +1,11 @@
 package com.ltsoft.jms.message;
 
 import com.ltsoft.jms.destination.JmsQueue;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class JmsMessageTest {
 
@@ -29,17 +29,19 @@ public class JmsMessageTest {
 
         JmsMessage result = JmsMessageHelper.fromMap(props);
 
-        assertThat(result.getJMSReplyTo()).isInstanceOf(JmsQueue.class);
-        assertThat(result.getJMSDestination()).isInstanceOf(JmsQueue.class);
-
-        assertThat(result.getBooleanProperty("bool")).isTrue();
-        assertThat(result.getByteProperty("byte")).isEqualTo(Byte.valueOf("1"));
-        assertThat(result.getDoubleProperty("double")).isEqualTo(10.10);
-        assertThat(result.getFloatProperty("float")).isEqualTo(20.20f);
-        assertThat(result.getIntProperty("int")).isEqualTo(30);
-        assertThat(result.getLongProperty("long")).isEqualTo(40);
-        assertThat(result.getShortProperty("short")).isEqualTo((short) 50);
-        assertThat(result.getStringProperty("string")).isEqualTo("abc");
-        assertThat(result.getObjectProperty("obj")).isNotNull().isInstanceOf(String.class);
+        assertAll(
+                () -> assertTrue(result.getJMSReplyTo() instanceof JmsQueue),
+                () -> assertTrue(result.getJMSDestination() instanceof JmsQueue),
+                () -> assertTrue(result.getBooleanProperty("bool")),
+                () -> assertEquals((byte) Byte.valueOf("1"), result.getByteProperty("byte")),
+                () -> assertEquals(10.10, result.getDoubleProperty("double")),
+                () -> assertEquals(20.20f, result.getFloatProperty("float")),
+                () -> assertEquals(30, result.getIntProperty("int")),
+                () -> assertEquals(40, result.getLongProperty("long")),
+                () -> assertEquals((short) 50, result.getShortProperty("short")),
+                () -> assertEquals("abc", result.getStringProperty("string")),
+                () -> assertNotNull(result.getObjectProperty("obj")),
+                () -> assertTrue(result.getObjectProperty("obj") instanceof String)
+        );
     }
 }

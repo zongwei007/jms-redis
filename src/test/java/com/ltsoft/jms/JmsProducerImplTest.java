@@ -3,10 +3,10 @@ package com.ltsoft.jms;
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.type.IntegerType;
 import com.ltsoft.jms.util.ThreadPool;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.redisson.Redisson;
 import org.redisson.api.RMap;
 import org.redisson.api.RedissonClient;
@@ -22,8 +22,7 @@ import static com.ltsoft.jms.message.JmsMessageHelper.fromMap;
 import static com.ltsoft.jms.message.JmsMessageHelper.toStringKey;
 import static com.ltsoft.jms.util.KeyHelper.getDestinationKey;
 import static com.ltsoft.jms.util.KeyHelper.getDestinationPropsKey;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * 消息提供者测试
@@ -36,7 +35,7 @@ public class JmsProducerImplTest {
 
     private Queue queue = context.createQueue("queue");
 
-    @BeforeClass
+    @BeforeAll
     public static void setupBeforeClass() {
         client = Redisson.create();
         JmsConfig jmsConfig = new JmsConfig();
@@ -45,13 +44,13 @@ public class JmsProducerImplTest {
         context = new JmsContextImpl("ClientID", client, jmsConfig, threadPool, JMSContext.CLIENT_ACKNOWLEDGE);
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownAfterClass() {
         context.close();
         client.shutdown();
     }
 
-    @Before
+    @BeforeEach
     public void setup() {
         client.getKeys().flushdb();
     }
@@ -62,8 +61,10 @@ public class JmsProducerImplTest {
 
         context.createProducer().send(queue, message);
 
-        assertThat(client.getList(getDestinationKey(queue)).size()).isGreaterThan(0);
-        assertThat(client.getKeys().countExists(getDestinationPropsKey(queue, message.getJMSMessageID()))).isGreaterThan(0);
+        assertAll(
+                () -> assertTrue(client.getList(getDestinationKey(queue)).size() > 0),
+                () -> assertTrue(client.getKeys().countExists(getDestinationPropsKey(queue, message.getJMSMessageID())) > 0)
+        );
     }
 
     @Test
@@ -71,10 +72,11 @@ public class JmsProducerImplTest {
         context.createProducer().send(queue, "text");
 
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
-        assertThat(messageId).isNotEmpty();
+        assertFalse(messageId.isEmpty());
+
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message).isInstanceOf(TextMessage.class);
+        assertTrue(message instanceof TextMessage);
     }
 
     @Test
@@ -84,10 +86,11 @@ public class JmsProducerImplTest {
         context.createProducer().send(queue, value);
 
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
-        assertThat(messageId).isNotEmpty();
+        assertFalse(messageId.isEmpty());
+
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message).isInstanceOf(MapMessage.class);
+        assertTrue(message instanceof MapMessage);
     }
 
     @Test
@@ -95,10 +98,11 @@ public class JmsProducerImplTest {
         context.createProducer().send(queue, "foo".getBytes());
 
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
-        assertThat(messageId).isNotEmpty();
+        assertFalse(messageId.isEmpty());
+
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message).isInstanceOf(StreamMessage.class);
+        assertTrue(message instanceof StreamMessage);
     }
 
     @Test
@@ -109,10 +113,11 @@ public class JmsProducerImplTest {
         context.createProducer().send(queue, obj);
 
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
-        assertThat(messageId).isNotEmpty();
+        assertFalse(messageId.isEmpty());
+
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message).isInstanceOf(ObjectMessage.class);
+        assertTrue(message instanceof ObjectMessage);
     }
 
     @Test
@@ -124,15 +129,14 @@ public class JmsProducerImplTest {
         //TODO 校验写入，丰富场景
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void setDisableMessageID() throws Exception {
-        context.createProducer().setDisableMessageID(true);
-        fail("unsupported");
+        assertThrows(UnsupportedOperationException.class, () -> context.createProducer().setDisableMessageID(true));
     }
 
     @Test
     public void getDisableMessageID() throws Exception {
-        assertThat(context.createProducer().getDisableMessageID()).isFalse();
+        assertFalse(context.createProducer().getDisableMessageID());
     }
 
     @Test
@@ -144,7 +148,7 @@ public class JmsProducerImplTest {
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message.getJMSTimestamp()).isEqualTo(0);
+        assertEquals(0, message.getJMSTimestamp());
     }
 
     @Test
@@ -164,7 +168,7 @@ public class JmsProducerImplTest {
                 .send(queue, "text");
 
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
-        assertThat(client.getKeys().remainTimeToLive(getDestinationPropsKey(queue, messageId))).isGreaterThan(0);
+        assertTrue(client.getKeys().remainTimeToLive(getDestinationPropsKey(queue, messageId)) > 0);
     }
 
     @Test
@@ -179,13 +183,12 @@ public class JmsProducerImplTest {
                 .setAsync(new CompletionListener() {
                     @Override
                     public void onCompletion(Message message) {
-                        try {
-                            assertThat(message.getJMSMessageID()).isNotEmpty();
-                            assertThat(message.getJMSTimestamp()).isGreaterThan(0);
-                            flag.set(true);
-                        } catch (JMSException e) {
-                            fail(e.getMessage());
-                        }
+                        assertAll(
+                                () -> assertFalse(message.getJMSMessageID().isEmpty()),
+                                () -> assertTrue(message.getJMSTimestamp() > 0)
+                        );
+
+                        flag.set(true);
                     }
 
                     @Override
@@ -197,7 +200,7 @@ public class JmsProducerImplTest {
 
         Thread.sleep(1000);
 
-        assertThat(flag.get()).isTrue();
+        assertTrue(flag.get());
     }
 
     @Test
@@ -218,28 +221,31 @@ public class JmsProducerImplTest {
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message.getBooleanProperty("bool")).isTrue();
-        assertThat(message.getByteProperty("byte")).isEqualTo(Byte.valueOf("0"));
-        assertThat(message.getDoubleProperty("double")).isEqualTo(10D);
-        assertThat(message.getLongProperty("long")).isEqualTo(20L);
-        assertThat(message.getFloatProperty("float")).isEqualTo(30F);
-        assertThat(message.getShortProperty("short")).isEqualTo(Short.valueOf("40"));
-        assertThat(message.getIntProperty("int")).isEqualTo(50);
-        assertThat(message.getObjectProperty("obj")).isInstanceOf(String.class);
-        assertThat(message.getStringProperty("text")).isEqualTo("foo");
+
+        assertAll(
+                () -> assertTrue(message.getBooleanProperty("bool")),
+                () -> assertEquals((byte) Byte.valueOf("0"), message.getByteProperty("byte")),
+                () -> assertEquals(10D, message.getDoubleProperty("double")),
+                () -> assertEquals(20L, message.getLongProperty("long")),
+                () -> assertEquals(30F, message.getFloatProperty("float")),
+                () -> assertEquals((short) Short.valueOf("40"), message.getShortProperty("short")),
+                () -> assertEquals(50, message.getIntProperty("int")),
+                () -> assertTrue(message.getObjectProperty("obj") instanceof String),
+                () -> assertEquals("foo", message.getStringProperty("text"))
+        );
     }
 
     @Test
     public void clearProperties() throws Exception {
-        assertThat(context.createProducer()
+        assertTrue(context.createProducer()
                 .setProperty("foo", "bar")
-                .clearProperties().getPropertyNames()).isEmpty();
+                .clearProperties().getPropertyNames().isEmpty());
     }
 
     @Test
     public void propertyExists() throws Exception {
-        assertThat(context.createProducer()
-                .setProperty("foo", "bar").propertyExists("foo")).isTrue();
+        assertTrue(context.createProducer()
+                .setProperty("foo", "bar").propertyExists("foo"));
     }
 
     @Test
@@ -252,7 +258,7 @@ public class JmsProducerImplTest {
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message.getJMSCorrelationIDAsBytes()).isEqualTo(idAsBytes);
+        assertArrayEquals(idAsBytes, message.getJMSCorrelationIDAsBytes());
     }
 
     @Test
@@ -265,18 +271,17 @@ public class JmsProducerImplTest {
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message.getJMSCorrelationID()).isEqualTo(id);
+        assertEquals(id, message.getJMSCorrelationID());
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void setJMSType() throws Exception {
-        context.createProducer().setJMSType("type");
-        fail("unsupported");
+        assertThrows(UnsupportedOperationException.class, () -> context.createProducer().setJMSType("type"));
     }
 
     @Test
     public void getJMSType() throws Exception {
-        assertThat(context.createProducer().getJMSType()).isNull();
+        assertNull(context.createProducer().getJMSType());
     }
 
     @Test
@@ -290,7 +295,7 @@ public class JmsProducerImplTest {
         String messageId = client.<String>getList(getDestinationKey(queue), StringCodec.INSTANCE).get(0);
         RMap<byte[], byte[]> map = client.getMap(getDestinationPropsKey(queue, messageId), ByteArrayCodec.INSTANCE);
         JmsMessage message = fromMap(toStringKey(map.readAllMap()));
-        assertThat(message.getJMSReplyTo()).isEqualTo(reply);
+        assertEquals(reply, message.getJMSReplyTo());
     }
 
 }

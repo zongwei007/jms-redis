@@ -2,15 +2,15 @@ package com.ltsoft.jms.message;
 
 import com.ltsoft.jms.type.StringType;
 import com.ltsoft.jms.util.MessageType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.jms.MapMessage;
 import javax.jms.MessageFormatRuntimeException;
+import java.util.Arrays;
 import java.util.Map;
 
 import static com.ltsoft.jms.message.JmsMessageHelper.getMessageId;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Map 消息类型测试
@@ -28,7 +28,7 @@ public class JmsMapMessageTest {
 
         message = JmsMessageHelper.fromBytes(bytes);
 
-        assertThat(message.getObject("int")).isInstanceOf(Integer.class);
+        assertTrue(message.getObject("int") instanceof Integer);
     }
 
     @Test
@@ -38,10 +38,11 @@ public class JmsMapMessageTest {
         message.setString("str", "true");
         message.setInt("int", 0);
 
-        assertThat(message.getBoolean("bool")).isTrue();
-        assertThat(message.getBoolean("str")).isTrue();
-
-        assertThatThrownBy(() -> message.getBoolean("int")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
+        assertAll(
+                () -> assertTrue(message.getBoolean("bool")),
+                () -> assertTrue(message.getBoolean("str")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getBoolean("int"))
+        );
     }
 
     @Test
@@ -51,9 +52,10 @@ public class JmsMapMessageTest {
         message.setString("str", "20");
         message.setDouble("double", 4);
 
-        assertThat(message.getByte("byte")).isEqualTo((byte) 10);
-
-        assertThatThrownBy(() -> message.getByte("double")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
+        assertAll(
+                () -> assertEquals((byte) 10, message.getByte("byte")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getByte("double"))
+        );
     }
 
     @Test
@@ -62,8 +64,10 @@ public class JmsMapMessageTest {
         message.setShort("short", Short.valueOf("10"));
         message.setString("str", "20");
 
-        assertThat(message.getShort("short")).isEqualTo((short) 10);
-        assertThat(message.getShort("str")).isEqualTo((short) 20);
+        assertAll(
+                () -> assertEquals((short) 10, message.getShort("short")),
+                () -> assertEquals((short) 20, message.getShort("str"))
+        );
     }
 
     @Test
@@ -72,8 +76,10 @@ public class JmsMapMessageTest {
         message.setChar("char", 'c');
         message.setString("str", "foo");
 
-        assertThat(message.getChar("char")).isEqualTo('c');
-        assertThatThrownBy(() -> message.getChar("str")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
+        assertAll(
+                () -> assertEquals('c', message.getChar("char")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getChar("str"))
+        );
     }
 
     @Test
@@ -83,10 +89,11 @@ public class JmsMapMessageTest {
         message.setString("str", "20");
         message.setDouble("double", 30.5);
 
-        assertThat(message.getInt("integer")).isEqualTo(10);
-        assertThat(message.getInt("str")).isEqualTo(20);
-
-        assertThatThrownBy(() -> message.getInt("double")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
+        assertAll(
+                () -> assertEquals(10, message.getInt("integer")),
+                () -> assertEquals(20, message.getInt("str")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getInt("double"))
+        );
     }
 
     @Test
@@ -97,11 +104,12 @@ public class JmsMapMessageTest {
         message.setString("str", "500");
         message.setDouble("double", 600.65);
 
-        assertThat(message.getLong("long")).isEqualTo(300L);
-        assertThat(message.getLong("integer")).isEqualTo(400L);
-        assertThat(message.getLong("str")).isEqualTo(500L);
-
-        assertThatThrownBy(() -> message.getLong("double")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
+        assertAll(
+                () -> assertEquals(300L, message.getLong("long")),
+                () -> assertEquals(400L, message.getLong("integer")),
+                () -> assertEquals(500L, message.getLong("str")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getLong("double"))
+        );
     }
 
     @Test
@@ -112,11 +120,12 @@ public class JmsMapMessageTest {
         message.setInt("integer", 40);
         message.setDouble("double", 50.6);
 
-        assertThat(message.getFloat("float")).isEqualTo(20.3f);
-        assertThat(message.getFloat("str")).isEqualTo(30.5f);
-
-        assertThatThrownBy(() -> message.getFloat("integer")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
-        assertThatThrownBy(() -> message.getFloat("double")).isInstanceOf(MessageFormatRuntimeException.class).hasMessageContaining("No converter");
+        assertAll(
+                () -> assertEquals(20.3f, message.getFloat("float")),
+                () -> assertEquals(30.5f, message.getFloat("str")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getFloat("integer")),
+                () -> assertThrows(MessageFormatRuntimeException.class, () -> message.getFloat("double"))
+        );
     }
 
     @Test
@@ -126,9 +135,11 @@ public class JmsMapMessageTest {
         message.setFloat("float", 33.5f);
         message.setString("str", "44.5");
 
-        assertThat(message.getDouble("double")).isEqualTo(23.5);
-        assertThat(message.getDouble("float")).isEqualTo(33.5);
-        assertThat(message.getDouble("str")).isEqualTo(44.5);
+        assertAll(
+                () -> assertEquals(23.5, message.getDouble("double")),
+                () -> assertEquals(33.5, message.getDouble("float")),
+                () -> assertEquals(44.5, message.getDouble("str"))
+        );
     }
 
     @Test
@@ -138,9 +149,11 @@ public class JmsMapMessageTest {
         message.setInt("integer", 10);
         message.setBoolean("bool", true);
 
-        assertThat(message.getString("str")).isEqualTo("foo");
-        assertThat(message.getString("integer")).isEqualTo("10");
-        assertThat(message.getString("bool")).isEqualTo("true");
+        assertAll(
+                () -> assertEquals("foo", message.getString("str")),
+                () -> assertEquals("10", message.getString("integer")),
+                () -> assertEquals("true", message.getString("bool"))
+        );
     }
 
     @Test
@@ -154,8 +167,10 @@ public class JmsMapMessageTest {
         byte[] bytes = JmsMessageHelper.toBytes(message);
         JmsMapMessage result = JmsMessageHelper.fromBytes(bytes);
 
-        assertThat(result.getBytes("bytes")).isEqualTo(strBytes);
-        assertThat(result.getBytes("bytes-len")).isEqualTo("It".getBytes());
+        assertAll(
+                () -> assertArrayEquals(strBytes, result.getBytes("bytes")),
+                () -> assertArrayEquals("It".getBytes(), result.getBytes("bytes-len"))
+        );
     }
 
     @Test
@@ -169,8 +184,10 @@ public class JmsMapMessageTest {
         JmsMapMessage result = new JmsMapMessage();
         result.setBody(bytes);
 
-        assertThat(result.getObject("obj1")).isEqualTo("type1");
-        assertThat(result.getObject("obj2")).isEqualTo(20);
+        assertAll(
+                () -> assertEquals("type1", result.getObject("obj1")),
+                () -> assertEquals(20, result.getObject("obj2"))
+        );
     }
 
     @Test
@@ -178,7 +195,7 @@ public class JmsMapMessageTest {
         MapMessage message = new JmsMapMessage();
         message.setObject("integer", 20);
 
-        assertThat(message.getBody(Map.class).get("integer")).isEqualTo(20);
+        assertEquals(20, message.getBody(Map.class).get("integer"));
     }
 
     @Test
@@ -188,7 +205,7 @@ public class JmsMapMessageTest {
         message.setDouble("double", 2);
         message.setString("str", "foo");
 
-        assertThat(((Map<String, Object>) message.getBody(Map.class)).keySet()).containsOnly("double", "str");
+        assertIterableEquals(((Map<String, Object>) message.getBody(Map.class)).keySet(), Arrays.asList("str", "double"));
     }
 
     @Test
@@ -201,14 +218,17 @@ public class JmsMapMessageTest {
         byte[] bytes = JmsMessageHelper.toBytes(message);
         MapMessage result = JmsMessageHelper.fromBytes(bytes);
 
-        assertThat(result.itemExists("double")).isTrue();
-        assertThat(result.itemExists("foo")).isTrue();
-        assertThat(result.itemExists("bar")).isFalse();
+
+        assertAll(
+                () -> assertTrue(result.itemExists("double")),
+                () -> assertTrue(result.itemExists("foo")),
+                () -> assertFalse(result.itemExists("bar"))
+        );
     }
 
     @Test
     public void getJMSType() throws Exception {
-        assertThat(new JmsMapMessage().getJMSType()).isEqualTo(MessageType.Map.name());
+        assertEquals(MessageType.Map.name(), new JmsMapMessage().getJMSType());
     }
 
     @Test
@@ -216,11 +236,11 @@ public class JmsMapMessageTest {
         MapMessage message = new JmsMapMessage();
         message.setString("foo", "bar");
 
-        assertThat(message.itemExists("foo")).isTrue();
+        assertTrue(message.itemExists("foo"));
 
         message.clearBody();
 
-        assertThat(message.itemExists("foo")).isFalse();
+        assertFalse(message.itemExists("foo"));
     }
 
     @Test
@@ -228,8 +248,10 @@ public class JmsMapMessageTest {
         MapMessage message = new JmsMapMessage();
         message.setInt("integer", 20);
 
-        assertThat(message.isBodyAssignableTo(Map.class)).isTrue();
-        assertThat(message.isBodyAssignableTo(StringType.class)).isFalse();
+        assertAll(
+                () -> assertTrue(message.isBodyAssignableTo(Map.class)),
+                () -> assertFalse(message.isBodyAssignableTo(StringType.class))
+        );
     }
 
 }

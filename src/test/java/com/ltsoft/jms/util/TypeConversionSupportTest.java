@@ -1,6 +1,13 @@
 package com.ltsoft.jms.util;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * 类型转换测试
@@ -12,25 +19,23 @@ public class TypeConversionSupportTest {
         TypeConversionSupport.convert(null, String.class);
     }
 
-    @Test(expected = NullPointerException.class)
+    @Test
     public void testNullType() throws Exception {
-        TypeConversionSupport.convert("foo", null);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testNoConverter() throws Exception {
-        TypeConversionSupport.convert("foo", Integer.class);
+        assertThrows(NullPointerException.class, () -> TypeConversionSupport.convert("foo", null));
     }
 
     @Test
-    public void testSomeType() throws Exception {
-        TypeConversionSupport.convert(true, String.class);
-        TypeConversionSupport.convert((byte) 'a', String.class);
-        TypeConversionSupport.convert((short) 10, String.class);
-        TypeConversionSupport.convert(20, String.class);
-        TypeConversionSupport.convert(30L, String.class);
-        TypeConversionSupport.convert(2.2F, String.class);
-        TypeConversionSupport.convert(3.3D, String.class);
-        TypeConversionSupport.convert("foo", String.class);
+    public void testNoConverter() throws Exception {
+        assertThrows(IllegalArgumentException.class, () -> TypeConversionSupport.convert("foo", Integer.class));
+    }
+
+    @ParameterizedTest
+    @MethodSource("valueProvider")
+    public void testSomeType(Object param) throws Exception {
+        assertDoesNotThrow(() -> TypeConversionSupport.convert(param, String.class));
+    }
+
+    static Stream valueProvider() {
+        return Stream.of(true, (byte) 'a', (short) 10, 20, 30L, 2.2F, 3.3D, "foo");
     }
 }
