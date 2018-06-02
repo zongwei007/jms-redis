@@ -3,6 +3,7 @@ package com.ltsoft.jms;
 import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.message.JmsMessage;
 import com.ltsoft.jms.util.MessageProperty;
+import org.redisson.api.BatchOptions;
 import org.redisson.api.RBatch;
 import org.redisson.api.RFuture;
 import org.redisson.api.RedissonClient;
@@ -64,7 +65,7 @@ public class JmsProducerImpl implements JMSProducer {
 
                 String consumersKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
 
-                RBatch batch = client.createBatch().atomic();
+                RBatch batch = client.createBatch(BatchOptions.defaults().atomic().skipResult());
                 batch.getMap(propsKey, ByteArrayCodec.INSTANCE).putAllAsync(toBytesKey(toMap(message)));
                 if (body != null) {
                     batch.getBucket(bodyKey, ByteArrayCodec.INSTANCE).setAsync(body);
@@ -78,7 +79,7 @@ public class JmsProducerImpl implements JMSProducer {
                     batch.getBucket(bodyKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
                     batch.getSet(consumersKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
                 }
-                future = batch.skipResult().executeAsync();
+                future = batch.executeAsync();
             } else {
                 future = client.getTopic(getDestinationKey(destination), ByteArrayCodec.INSTANCE).publishAsync(toBytes(message));
             }
@@ -87,7 +88,7 @@ public class JmsProducerImpl implements JMSProducer {
             String bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
             byte[] body = message.getBody();
 
-            RBatch batch = client.createBatch().atomic();
+            RBatch batch = client.createBatch(BatchOptions.defaults().atomic().skipResult());
             batch.getMap(propsKey, ByteArrayCodec.INSTANCE).putAllAsync(toBytesKey(toMap(message)));
             if (body != null) {
                 batch.getBucket(bodyKey, ByteArrayCodec.INSTANCE).setAsync(body);
@@ -98,7 +99,7 @@ public class JmsProducerImpl implements JMSProducer {
                 batch.getBucket(bodyKey).expireAsync(timeToLive, TimeUnit.MILLISECONDS);
             }
 
-            future = batch.skipResult().executeAsync();
+            future = batch.executeAsync();
         } else {
             throw new JMSException("不支持的目的类型");
         }

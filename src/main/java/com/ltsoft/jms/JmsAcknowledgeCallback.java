@@ -2,6 +2,7 @@ package com.ltsoft.jms;
 
 import com.ltsoft.jms.exception.JMSExceptionSupport;
 import com.ltsoft.jms.message.JmsMessage;
+import org.redisson.api.BatchOptions;
 import org.redisson.api.RBatch;
 import org.redisson.api.RSet;
 import org.redisson.api.RedissonClient;
@@ -38,7 +39,7 @@ public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
             String propsKey = getDestinationPropsKey(message.getJMSDestination(), messageId);
             String bodyKey = getDestinationBodyKey(message.getJMSDestination(), messageId);
 
-            RBatch batch = client.createBatch().atomic();
+            RBatch batch = client.createBatch(BatchOptions.defaults().atomic());
             if (message.getJMSDestination() instanceof Topic) {
                 String itemConsumersKey = getTopicItemConsumersKey(message.getJMSDestination(), messageId);
                 RSet<String> consumerSets = client.getSet(itemConsumersKey, StringCodec.INSTANCE);
