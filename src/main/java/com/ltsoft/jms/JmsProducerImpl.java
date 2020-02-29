@@ -65,7 +65,7 @@ public class JmsProducerImpl implements JMSProducer {
 
                 String consumersKey = getTopicItemConsumersKey(destination, message.getJMSMessageID());
 
-                RBatch batch = client.createBatch(BatchOptions.defaults().atomic().skipResult());
+                RBatch batch = client.createBatch(BatchOptions.defaults().skipResult().executionMode(BatchOptions.ExecutionMode.REDIS_READ_ATOMIC));
                 batch.getMap(propsKey, ByteArrayCodec.INSTANCE).putAllAsync(toBytesKey(toMap(message)));
                 if (body != null) {
                     batch.getBucket(bodyKey, ByteArrayCodec.INSTANCE).setAsync(body);
@@ -88,7 +88,7 @@ public class JmsProducerImpl implements JMSProducer {
             String bodyKey = getDestinationBodyKey(destination, message.getJMSMessageID());
             byte[] body = message.getBody();
 
-            RBatch batch = client.createBatch(BatchOptions.defaults().atomic().skipResult());
+            RBatch batch = client.createBatch(BatchOptions.defaults().skipResult().executionMode(BatchOptions.ExecutionMode.REDIS_READ_ATOMIC));
             batch.getMap(propsKey, ByteArrayCodec.INSTANCE).putAllAsync(toBytesKey(toMap(message)));
             if (body != null) {
                 batch.getBucket(bodyKey, ByteArrayCodec.INSTANCE).setAsync(body);

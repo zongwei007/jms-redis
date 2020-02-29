@@ -9,7 +9,7 @@
     <version>0.3-SNAPSHOT</version>
 
     <properties>
-        <redisson.version>3.7.0</redisson.version>
+        <redisson.version>3.12.2</redisson.version>
         <mockito.version>2.2.6</mockito.version>
         <assertj.version>3.5.2</assertj.version>
         <junit.version>5.2.0</junit.version>

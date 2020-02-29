@@ -39,7 +39,7 @@ public class JmsAcknowledgeCallback implements Consumer<JmsMessage> {
             String propsKey = getDestinationPropsKey(message.getJMSDestination(), messageId);
             String bodyKey = getDestinationBodyKey(message.getJMSDestination(), messageId);
 
-            RBatch batch = client.createBatch(BatchOptions.defaults().atomic());
+            RBatch batch = client.createBatch(BatchOptions.defaults().executionMode(BatchOptions.ExecutionMode.REDIS_WRITE_ATOMIC));
             if (message.getJMSDestination() instanceof Topic) {
                 String itemConsumersKey = getTopicItemConsumersKey(message.getJMSDestination(), messageId);
                 RSet<String> consumerSets = client.getSet(itemConsumersKey, StringCodec.INSTANCE);

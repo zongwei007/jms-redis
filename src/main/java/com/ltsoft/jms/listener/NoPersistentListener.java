@@ -29,7 +29,7 @@ public class NoPersistentListener implements MessageListener<byte[]>, Listener {
     private final javax.jms.MessageListener listener;
     private final Destination destination;
     private final boolean noLocal;
-    private RTopic<byte[]> topic;
+    private RTopic topic;
 
     public NoPersistentListener(JmsConsumerImpl consumer) {
         this.context = consumer.context();
@@ -39,8 +39,9 @@ public class NoPersistentListener implements MessageListener<byte[]>, Listener {
         this.noLocal = consumer.isNoLocal();
     }
 
+
     @Override
-    public void onMessage(String channel, byte[] msg) {
+    public void onMessage(CharSequence channel, byte[] msg) {
         JmsMessage message = null;
         try {
             message = JmsMessageHelper.fromBytes(msg);
@@ -58,12 +59,13 @@ public class NoPersistentListener implements MessageListener<byte[]>, Listener {
         }
     }
 
+
     @Override
     public void start() {
         RedissonClient client = context.client();
         this.topic = client.getTopic(getDestinationKey(destination), ByteArrayCodec.INSTANCE);
 
-        topic.addListener(this);
+        topic.addListener(byte[].class, this);
 
         LOGGER.finest(() -> String.format("Client '%s' is listening to '%s'", clientID, destination));
     }
