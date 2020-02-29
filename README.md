@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/zongwei007/jms-redis.svg?branch=master)](https://travis-ci.org/zongwei007/jms-redis)
+[![codecov](https://codecov.io/gh/zongwei007/jms-redis/branch/master/graph/badge.svg)](https://codecov.io/gh/zongwei007/jms-redis)
+
 # JMS-Redis
 基于 Redis 实现的实验用 Java 消息服务，仅支持 JMS 2.0 的部分特性。
 
